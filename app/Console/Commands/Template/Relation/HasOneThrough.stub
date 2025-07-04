@@ -1,0 +1,4 @@
+public function {{methodName}}(): \Illuminate\Database\Eloquent\Relations\HasOneThrough
+    {
+        return $this->hasOneThrough({{relatedClass}} {{extraParams}});
+    }

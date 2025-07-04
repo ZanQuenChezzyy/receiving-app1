@@ -1,0 +1,4 @@
+public function {{methodName}}(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne({{relatedClass}});
+    }

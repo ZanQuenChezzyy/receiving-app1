@@ -1,0 +1,4 @@
+public function {{methodName}}(): \Illuminate\Database\Eloquent\Relations\HasManyThrough
+    {
+        return $this->hasManyThrough({{relatedClass}} {{extraParams}});
+    }

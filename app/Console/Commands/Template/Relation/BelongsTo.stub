@@ -1,0 +1,4 @@
+public function {{methodName}}(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo({{relatedClass}}, '{{foreignKey}}', 'id');
+    }

@@ -13,6 +13,9 @@ class DeliveryOrderReceiptDetail extends Model
         'delivery_order_receipt_id',
         'item_no',
         'quantity',
+        'material_code',
+        'description',
+        'uoi',
         'is_different_location',
         'location_id',
     ];

@@ -14,7 +14,10 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('delivery_order_receipt_id')->constrained('delivery_order_receipts')->cascadeOnDelete();
             $table->unsignedTinyInteger('item_no');
-            $table->unsignedMediumInteger('quantity');
+            $table->string('quantity', 10);
+            $table->string('material_code')->nullable();
+            $table->text('description');
+            $table->string('uoi', 5)->nullable();
             $table->boolean('is_different_location')->default(false);
             $table->foreignId('location_id')->nullable()->constrained('locations')->nullOnDelete();
             $table->timestamps();

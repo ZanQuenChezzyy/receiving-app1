@@ -18,11 +18,15 @@ class DeliveryOrderReceipt extends Model
         'stage_id',
     ];
 
-    public function users(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function receivedBy(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
-        return $this->belongsTo(\App\Models\User::class, 'user_id', 'id');
+        return $this->belongsTo(\App\Models\User::class, 'received_by', 'id');
     }
 
+    public function createdBy(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(\App\Models\User::class, 'created_by', 'id');
+    }
 
     public function locations(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {

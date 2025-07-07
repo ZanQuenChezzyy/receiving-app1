@@ -16,7 +16,8 @@ class ListPurchaseOrderTerbits extends ListRecords
     {
         return [
             ImportAction::make()
-                ->importer(PurchaseOrderTerbitImporter::class),
+                ->importer(PurchaseOrderTerbitImporter::class)
+                ->chunkSize(1000),
             Actions\CreateAction::make(),
         ];
     }

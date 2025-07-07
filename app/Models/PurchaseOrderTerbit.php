@@ -10,18 +10,18 @@ class PurchaseOrderTerbit extends Model
     use HasFactory;
 
     protected $fillable = [
-        'purchase_order_item',
+        'purchase_order_and_item',
         'purchase_order_no',
         'item_no',
         'material_code',
         'description',
-        'quantity',
+        'qty_po',
         'uoi',
-        'vendor_id',
+        'vendor',
         'vendor_id_name',
-        'date_created',
-        'delivery_date',
-        'status',
+        'date_create',
+        'delivery_date_po',
+        'po_status',
         'incoterm',
     ];
 

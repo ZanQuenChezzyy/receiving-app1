@@ -24,8 +24,12 @@ class LocationResource extends Resource
         return $form
             ->schema([
                 Forms\Components\TextInput::make('name')
-                    ->required()
-                    ->maxLength(255),
+                    ->label('Location Name')
+                    ->placeholder('Enter location name')
+                    ->columnSpanFull()
+                    ->minLength(3)
+                    ->maxLength(255)
+                    ->required(),
             ]);
     }
 
@@ -34,6 +38,7 @@ class LocationResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
+                    ->label('Location Name')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()

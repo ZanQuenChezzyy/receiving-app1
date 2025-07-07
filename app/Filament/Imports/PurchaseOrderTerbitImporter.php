@@ -15,7 +15,7 @@ class PurchaseOrderTerbitImporter extends Importer
     public static function getColumns(): array
     {
         return [
-            ImportColumn::make('purchase_order_item')
+            ImportColumn::make('purchase_order_and_item')
                 ->rules(['max:20']),
             ImportColumn::make('purchase_order_no')
                 ->requiredMapping()
@@ -27,25 +27,25 @@ class PurchaseOrderTerbitImporter extends Importer
                 ->rules(['max:12']),
             ImportColumn::make('description')
                 ->requiredMapping(),
-            ImportColumn::make('quantity')
+            ImportColumn::make('qty_po')
                 ->requiredMapping()
                 ->numeric(),
             ImportColumn::make('uoi')
                 ->requiredMapping()
                 ->rules(['required', 'max:5']),
-            ImportColumn::make('vendor_id')
+            ImportColumn::make('vendor')
                 ->requiredMapping()
                 ->numeric(),
             ImportColumn::make('vendor_id_name')
                 ->requiredMapping()
                 ->rules(['max:100']),
-            ImportColumn::make('date_created')
+            ImportColumn::make('date_create')
                 ->requiredMapping()
                 ->rules(['date', 'nullable']),
-            ImportColumn::make('delivery_date')
+            ImportColumn::make('delivery_date_po')
                 ->requiredMapping()
                 ->rules(['date', 'nullable']),
-            ImportColumn::make('status')
+            ImportColumn::make('po_status')
                 ->rules(['max:2']),
             ImportColumn::make('incoterm')
                 ->rules(['max:100']),
@@ -54,39 +54,50 @@ class PurchaseOrderTerbitImporter extends Importer
 
     public function resolveRecord(): ?PurchaseOrderTerbit
     {
-        // Konversi langsung pada $this->data agar tidak override oleh internal fill()
-        if (!empty($this->data['date_created'])) {
-            try {
-                $this->data['date_created'] = Carbon::createFromFormat('d/m/Y', $this->data['date_created'])->format('Y-m-d');
-            } catch (\Exception $e) {
-                $this->data['date_created'] = null;
-            }
+        // Format tanggal
+        $this->data['date_create'] = $this->parseDate($this->data['date_create'] ?? null);
+        $this->data['delivery_date_po'] = $this->parseDate($this->data['delivery_date_po'] ?? null);
+
+        if (empty($this->data['purchase_order_no']) || empty($this->data['item_no'])) {
+            return null; // skip baris tanpa kunci utama
         }
 
-        if (!empty($this->data['delivery_date'])) {
-            try {
-                $this->data['delivery_date'] = Carbon::createFromFormat('d/m/Y', $this->data['delivery_date'])->format('Y-m-d');
-            } catch (\Exception $e) {
-                $this->data['delivery_date'] = null;
-            }
-        }
-
-        // Kembalikan model seperti biasa
-        return new PurchaseOrderTerbit([
-            'purchase_order_item' => $this->data['purchase_order_item'],
+        // Ambil atau buat record berdasarkan kunci unik
+        $record = PurchaseOrderTerbit::firstOrNew([
             'purchase_order_no' => $this->data['purchase_order_no'],
             'item_no' => $this->data['item_no'],
+        ]);
+
+        // Isi ulang data
+        $record->fill([
+            'purchase_order_and_item' => $this->data['purchase_order_and_item'],
             'material_code' => $this->data['material_code'],
             'description' => $this->data['description'],
-            'quantity' => $this->data['quantity'],
+            'qty_po' => $this->data['qty_po'],
             'uoi' => $this->data['uoi'],
-            'vendor_id' => $this->data['vendor_id'],
+            'vendor' => $this->data['vendor'],
             'vendor_id_name' => $this->data['vendor_id_name'],
-            'date_created' => $this->data['date_created'],
-            'delivery_date' => $this->data['delivery_date'],
-            'status' => $this->data['status'] ?? null,
+            'date_create' => $this->data['date_create'],
+            'delivery_date_po' => $this->data['delivery_date_po'],
+            'po_status' => $this->data['po_status'] ?? null,
             'incoterm' => $this->data['incoterm'] ?? null,
         ]);
+
+        // Skip jika tidak ada perubahan (agar lebih cepat)
+        if (!$record->isDirty()) {
+            return null;
+        }
+
+        return $record;
+    }
+
+    protected function parseDate(?string $date): ?string
+    {
+        try {
+            return Carbon::createFromFormat('d/m/Y', $date)->format('Y-m-d');
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 
     public static function getCompletedNotificationBody(Import $import): string
@@ -98,5 +109,10 @@ class PurchaseOrderTerbitImporter extends Importer
         }
 
         return $body;
+    }
+
+    public function getJobMiddleware(): array
+    {
+        return []; // kosongkan agar semua job boleh tumpang tindih
     }
 }

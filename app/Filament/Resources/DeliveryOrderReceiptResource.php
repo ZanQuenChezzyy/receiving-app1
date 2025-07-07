@@ -6,12 +6,18 @@ use App\Filament\Resources\DeliveryOrderReceiptResource\Pages;
 use App\Filament\Resources\DeliveryOrderReceiptResource\RelationManagers;
 use App\Models\DeliveryOrderReceipt;
 use Filament\Forms;
+use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\Group;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Auth;
 
 class DeliveryOrderReceiptResource extends Resource
 {
@@ -23,22 +29,130 @@ class DeliveryOrderReceiptResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('purchase_order_terbit_id')
-                    ->required()
-                    ->numeric(),
-                Forms\Components\TextInput::make('location_id')
-                    ->required()
-                    ->numeric(),
-                Forms\Components\DatePicker::make('received_date')
-                    ->required(),
-                Forms\Components\TextInput::make('received_by')
-                    ->required()
-                    ->numeric(),
-                Forms\Components\TextInput::make('created_by')
-                    ->required()
-                    ->numeric(),
-                Forms\Components\TextInput::make('stage_id')
-                    ->numeric(),
+                Grid::make(2)
+                    ->schema([
+                        Group::make([
+                            Forms\Components\Section::make('Informasi Penerimaan DO')
+                                ->description('Masukkan informasi utama dari Delivery Order')
+                                ->schema([
+                                    Select::make('purchase_order_terbit_id')
+                                        ->label('Nomor Purchase Order')
+                                        ->placeholder('Pilih Nomor PO')
+                                        ->options(function () {
+                                            return \App\Models\PurchaseOrderTerbit::query()
+                                                ->selectRaw('MIN(id) as id, purchase_order_no')
+                                                ->groupBy('purchase_order_no')
+                                                ->orderBy('purchase_order_no')
+                                                ->get()
+                                                ->pluck('purchase_order_no', 'id');
+                                        })
+                                        ->columnSpanFull()
+                                        ->searchable()
+                                        ->live()
+                                        ->preload()
+                                        ->required(),
+
+                                    Forms\Components\Select::make('location_id')
+                                        ->label('Lokasi Barang')
+                                        ->placeholder('Pilih Lokasi')
+                                        ->relationship('locations', 'name')
+                                        ->preload()
+                                        ->searchable()
+                                        ->required(),
+
+                                    Forms\Components\DatePicker::make('received_date')
+                                        ->label('Tanggal Diterima')
+                                        ->native(false)
+                                        ->required(),
+
+                                    Forms\Components\Select::make('received_by')
+                                        ->label('Diterima Oleh')
+                                        ->placeholder('Pilih Penerima')
+                                        ->relationship('users', 'name')
+                                        ->default(Auth::user()->id)
+                                        ->preload()
+                                        ->searchable()
+                                        ->required(),
+
+                                    Forms\Components\Hidden::make('created_by')
+                                        ->default(Auth::user()->id),
+
+                                    Forms\Components\Select::make('stage_id')
+                                        ->label('Tahapan')
+                                        ->relationship('stages', 'name')
+                                        ->searchable()
+                                        ->nullable(),
+                                ])
+                                ->columnSpan(1)
+                                ->columns(2),
+
+                            Forms\Components\Section::make('informasi Item')
+                                ->description('Berikut adalah informasi item yang terkait dengan penerimaan ini.')
+                                ->schema([
+                                    Forms\Components\Placeholder::make('daftar_item_po')
+                                        ->label('Item pada PO Terpilih')
+                                        ->reactive() // agar update saat PO berubah
+                                        ->content(function (callable $get) {
+                                            $poId = $get('purchase_order_terbit_id');
+                                            if (!$poId) {
+                                                return 'Silakan pilih nomor PO terlebih dahulu.';
+                                            }
+
+                                            $po = \App\Models\PurchaseOrderTerbit::find($poId);
+                                            if (!$po) {
+                                                return 'Data PO tidak ditemukan.';
+                                            }
+
+                                            $items = \App\Models\PurchaseOrderTerbit::query()
+                                                ->where('purchase_order_no', $po->purchase_order_no)
+                                                ->limit(15)
+                                                ->get(['item_no', 'description']);
+
+                                            if ($items->isEmpty()) {
+                                                return 'Tidak ada item untuk PO ini.';
+                                            }
+
+                                            // Format sebagai teks biasa (tanpa HTML)
+                                            return $items->map(function ($item) {
+                                                return "• Item {$item->item_no} • {$item->description}  ";
+                                            })->implode("<br>");
+                                        }),
+                                ]),
+                        ]),
+
+
+                        Forms\Components\Section::make('Detail Barang Diterima')
+                            ->description('Masukkan detail item yang diterima dalam pengiriman ini.')
+                            ->schema([
+                                Repeater::make('deliveryOrderReceiptDetails')
+                                    ->label('Detail Penerimaan')
+                                    ->relationship()
+                                    ->schema([
+                                        Forms\Components\TextInput::make('item_no')
+                                            ->numeric()
+                                            ->required()
+                                            ->label('No Item'),
+
+                                        Forms\Components\TextInput::make('quantity')
+                                            ->numeric()
+                                            ->required()
+                                            ->label('Jumlah'),
+
+                                        Forms\Components\Toggle::make('is_different_location')
+                                            ->label('Lokasi Berbeda?')
+                                            ->default(false),
+
+                                        Forms\Components\Select::make('location_id')
+                                            ->label('Lokasi Barang')
+                                            ->relationship('locations', 'name')
+                                            ->searchable()
+                                            ->nullable(),
+                                    ])
+                                    ->defaultItems(1)
+                                    ->columns(2),
+                            ])
+                            ->columnSpan(1),
+                    ]),
             ]);
     }
 

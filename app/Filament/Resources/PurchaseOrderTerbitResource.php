@@ -16,12 +16,17 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Actions\ActionGroup;
+use Filament\Tables\Actions\DeleteAction;
+use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Filament\Tables\Enums\ActionsPosition;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Auth;
 use Malzariey\FilamentDaterangepickerFilter\Filters\DateRangeFilter;
 
 class PurchaseOrderTerbitResource extends Resource
@@ -47,7 +52,7 @@ class PurchaseOrderTerbitResource extends Resource
                             ->afterStateUpdated(function ($state, callable $set, callable $get) {
                                 $itemNo = $get('item_no');
                                 if ($itemNo !== null) {
-                                    $set('purchase_order_item', $state . '-' . $itemNo);
+                                    $set('purchase_order_and_item', $state . '-' . $itemNo);
                                 }
                             }),
 
@@ -93,11 +98,11 @@ class PurchaseOrderTerbitResource extends Resource
                             ->afterStateUpdated(function ($state, callable $set, callable $get) {
                                 $poNo = $get('purchase_order_no');
                                 if ($poNo !== null) {
-                                    $set('purchase_order_item', $poNo . '-' . $state);
+                                    $set('purchase_order_and_item', $poNo . '-' . $state);
                                 }
                             }),
 
-                        TextInput::make('purchase_order_item')
+                        TextInput::make('purchase_order_and_item')
                             ->label('Purchase Order & Item')
                             ->disabled() // agar tidak bisa diedit manual
                             ->dehydrated()
@@ -120,7 +125,7 @@ class PurchaseOrderTerbitResource extends Resource
                         ->placeholder('Tulis nama material atau detail spesifikasi'),
 
                     Grid::make(2)->schema([
-                        TextInput::make('quantity')
+                        TextInput::make('qty_po')
                             ->label('Kuantitas')
                             ->placeholder('Masukkan kuantitas')
                             ->helperText('Contoh: 1000')
@@ -200,7 +205,7 @@ class PurchaseOrderTerbitResource extends Resource
                         ->description('Informasi vendor dan tanggal pengiriman')
                         ->schema([
                             Grid::make(2)->schema([
-                                TextInput::make('vendor_id')
+                                TextInput::make('vendor')
                                     ->label('ID Vendor')
                                     ->placeholder('Masukkan ID Vendor')
                                     ->required()
@@ -214,14 +219,14 @@ class PurchaseOrderTerbitResource extends Resource
                             ]),
 
                             Grid::make(2)->schema([
-                                DatePicker::make('date_created')
+                                DatePicker::make('date_create')
                                     ->label('Tanggal PO Dibuat')
                                     ->placeholder('Pilih tanggal dibuat')
                                     ->native(false)
                                     ->required()
                                     ->displayFormat('d M Y'),
 
-                                DatePicker::make('delivery_date')
+                                DatePicker::make('delivery_date_po')
                                     ->label('Tanggal Pengiriman (PO)')
                                     ->placeholder('Pilih tanggal pengiriman')
                                     ->native(false)
@@ -233,7 +238,7 @@ class PurchaseOrderTerbitResource extends Resource
                     Section::make('Lainnya')
                         ->schema([
                             Grid::make(2)->schema([
-                                Select::make('status')
+                                Select::make('po_status')
                                     ->label('Status')
                                     ->placeholder('Pillih status Purchase Order')
                                     ->options([
@@ -261,71 +266,73 @@ class PurchaseOrderTerbitResource extends Resource
         return $table
             ->poll('10s')
             ->columns([
+                TextColumn::make('purchase_order_and_item')
+                    ->label('Purchase Order & Item')
+                    ->searchable()
+                    ->placeholder('None')
+                    ->color('warning'),
+
                 TextColumn::make('purchase_order_no')
                     ->label('Purchase Order')
                     ->searchable()
                     ->sortable()
-                    ->placeholder('Tidak ada')
+                    ->placeholder('None')
                     ->color('primary'),
 
                 TextColumn::make('item_no')
                     ->label('Item')
                     ->sortable()
-                    ->placeholder('Tidak ada')
-                    ->alignCenter(),
-
-                TextColumn::make('purchase_order_item')
-                    ->label('Purchase Order & Item')
-                    ->searchable()
-                    ->placeholder('Tidak ada')
+                    ->placeholder('None')
+                    ->alignCenter()
                     ->color('gray'),
+
 
                 TextColumn::make('material_code')
                     ->label('Material Code')
                     ->sortable()
-                    ->placeholder('Tidak ada')
+                    ->placeholder('None')
                     ->color('gray'),
 
                 TextColumn::make('description')
-                    ->limit(30)
+                    ->limit(15)
                     ->wrap()
-                    ->placeholder('Tidak ada')
+                    ->placeholder('None')
                     ->tooltip(fn($record) => $record->description),
 
                 TextColumn::make('quantity_uoi')
                     ->label('Quantity')
-                    ->getStateUsing(fn($record) => $record->quantity . ' ' . $record->uoi)
+                    ->getStateUsing(fn($record) => $record->qty_po . ' ' . $record->uoi)
                     ->sortable()
                     ->badge()
-                    ->placeholder('Tidak ada')
+                    ->placeholder('None')
                     ->color('info')
                     ->alignRight(),
 
                 TextColumn::make('uoi')
                     ->label('UoI')
-                    ->placeholder('Tidak ada')
+                    ->placeholder('None')
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('vendor_id_name')
                     ->label('Vendor')
                     ->searchable()
-                    ->placeholder('Tidak ada')
+                    ->placeholder('None')
                     ->tooltip(fn($record) => $record->vendor_id_name)
-                    ->limit(30),
+                    ->limit(15),
 
-                TextColumn::make('date_created')
+                TextColumn::make('date_create')
                     ->label('Tanggal PO')
                     ->date('d M Y')
-                    ->placeholder('Tidak ada')
+                    ->placeholder('None')
                     ->sortable(),
 
-                TextColumn::make('delivery_date')
+                TextColumn::make('delivery_date_po')
                     ->label('Tgl Kirim')
                     ->date('d M Y')
-                    ->placeholder('Tidak ada')
+                    ->placeholder('None')
                     ->sortable(),
 
-                TextColumn::make('status')
+                TextColumn::make('po_status')
                     ->label('Status')
                     ->badge()
                     ->color(fn($state) => match ($state) {
@@ -334,38 +341,56 @@ class PurchaseOrderTerbitResource extends Resource
                         'C' => 'danger',
                         default => 'gray',
                     })
-                    ->placeholder('Tidak ada'),
+                    ->alignCenter()
+                    ->placeholder('None'),
 
                 TextColumn::make('incoterm')
                     ->label('Incoterm')
                     ->tooltip(fn($record) => $record->incoterm)
-                    ->limit(20)
-                    ->placeholder('Tidak ada'),
+                    ->limit(15)
+                    ->placeholder('None'),
 
                 TextColumn::make('created_at')
                     ->label('Dibuat')
                     ->dateTime('d M Y H:i')
                     ->sortable()
-                    ->placeholder('Tidak ada')
+                    ->placeholder('None')
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('updated_at')
                     ->label('Update Terakhir')
                     ->dateTime('d M Y H:i')
                     ->sortable()
-                    ->placeholder('Tidak ada')
+                    ->placeholder('None')
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                DateRangeFilter::make('date_created')
+                DateRangeFilter::make('date_create')
                     ->label('Tanggal PO Dibuat')
                     ->placeholder('Pilih rentang tanggal'),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make()
-                    ->slideOver(),
-            ])
+                ActionGroup::make([
+                    EditAction::make()
+                        ->color('info')
+                        ->slideOver(),
+                    DeleteAction::make()
+                        ->authorize(function ($record) {
+                            return Auth::id() !== $record->id;
+                        })
+                        ->using(function ($record) {
+                            if ($record->id === Auth::id()) {
+                                session()->flash('error', 'You cannot delete your own account.');
+                                return false;
+                            }
+                            $record->delete();
+                        })
+                        ->requiresConfirmation(),
+                ])
+                    ->icon('heroicon-o-ellipsis-horizontal-circle')
+                    ->color('primary')
+                    ->tooltip('Aksi'),
+            ], position: ActionsPosition::BeforeCells)
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()

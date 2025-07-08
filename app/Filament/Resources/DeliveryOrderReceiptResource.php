@@ -14,6 +14,10 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Actions\ActionGroup;
+use Filament\Tables\Actions\DeleteAction;
+use Filament\Tables\Actions\EditAction;
+use Filament\Tables\Enums\ActionsPosition;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
@@ -40,24 +44,12 @@ class DeliveryOrderReceiptResource extends Resource
                                     Select::make('purchase_order_terbit_id')
                                         ->label('Nomor Purchase Order')
                                         ->placeholder('Pilih Nomor PO')
+                                        ->relationship('purchaseOrderTerbits', 'purchase_order_no')
                                         ->searchable()
                                         ->live()
+                                        ->unique()
                                         ->required()
-                                        ->columnSpanFull()
-                                        ->options(
-                                            fn(string $search = '') =>
-                                            \App\Models\PurchaseOrderTerbit::query()
-                                                ->selectRaw('MIN(id) as id, purchase_order_no')
-                                                ->groupBy('purchase_order_no')
-                                                ->when(
-                                                    $search,
-                                                    fn($query) =>
-                                                    $query->where('purchase_order_no', 'like', "%{$search}%")
-                                                )
-                                                ->orderBy('purchase_order_no')
-                                                ->limit(50)
-                                                ->pluck('purchase_order_no', 'id')
-                                        ),
+                                        ->columnSpanFull(),
 
                                     Forms\Components\DatePicker::make('received_date')
                                         ->label('Tanggal Terima DO')
@@ -123,12 +115,13 @@ class DeliveryOrderReceiptResource extends Resource
 
                                             $html = '';
                                             foreach ($items as $item) {
-                                                $shortDesc = Str::limit($item->description, 20, '...');
-                                                $html .= "• Item {$item->item_no} - {$item->material_code} - {$item->qty_po} {$item->uoi} : {$shortDesc}<br>";
+                                                $materialCode = $item->material_code ?: '<em>None</em>';
+                                                $shortDesc = Str::limit($item->description, 35, '...');
+                                                $html .= "• Item {$item->item_no} - {$materialCode} - {$item->qty_po} {$item->uoi} : {$shortDesc}<br>";
                                             }
 
                                             return new HtmlString($html);
-                                        }),
+                                        })
                                 ]),
                         ]),
                         Forms\Components\Section::make('Item Diterima')
@@ -201,18 +194,25 @@ class DeliveryOrderReceiptResource extends Resource
                                                     ->onColor('primary')
                                                     ->reactive()
                                                     ->default(false),
-                                                Forms\Components\TextInput::make('quantity')
-                                                    ->label('Jumlah Diterima')
-                                                    ->placeholder('Jumlah Diterima')
-                                                    ->numeric()
-                                                    ->suffix(fn(callable $get) => $get('uoi') ?? '')
-                                                    ->required(),
-                                                Forms\Components\Select::make('location_id')
-                                                    ->label('Lokasi Barang')
-                                                    ->relationship('locations', 'name')
-                                                    ->searchable()
-                                                    ->nullable()
-                                                    ->visible(fn($get) => $get('is_different_location') ?? true),
+                                                Grid::make(5)
+                                                    ->schema([
+                                                        Forms\Components\TextInput::make('quantity')
+                                                            ->label('Jumlah Diterima')
+                                                            ->placeholder('Qty Diterima')
+                                                            ->numeric()
+                                                            ->suffix(fn(callable $get) => $get('uoi') ?? '')
+                                                            ->columnSpan(2)
+                                                            ->helperText('Diterima: 2 EA, Sisa: 2 EA')
+                                                            ->required(),
+                                                        Forms\Components\Select::make('location_id')
+                                                            ->label('Lokasi Item')
+                                                            ->relationship('locations', 'name')
+                                                            ->preload()
+                                                            ->searchable()
+                                                            ->nullable()
+                                                            ->columnSpan(3)
+                                                            ->visible(fn($get) => $get('is_different_location') ?? true),
+                                                    ]),
                                                 Forms\Components\hidden::make('material_code'),
                                                 Forms\Components\hidden::make('description'),
                                                 Forms\Components\hidden::make('uoi'),
@@ -237,7 +237,7 @@ class DeliveryOrderReceiptResource extends Resource
                     ->sortable()
                     ->searchable()
                     ->color('primary')
-                    ->icon('heroicon-o-document-text'),
+                    ->icon('heroicon-s-document-text'),
 
                 Tables\Columns\TextColumn::make('deliveryOrderReceiptDetails.item_no')
                     ->label('Item Diterima')
@@ -248,17 +248,33 @@ class DeliveryOrderReceiptResource extends Resource
                         if (!$record->deliveryOrderReceiptDetails?->count()) {
                             return ['-'];
                         }
+
                         return $record->deliveryOrderReceiptDetails
                             ->map(function ($detail) {
-                                return "Item {$detail->item_no} - {$detail->material_code} - {$detail->quantity} {$detail->uoi} - " .
-                                    Str::limit($detail->description, 5);
+                                $materialCode = $detail->material_code ?: 'None';
+                                $shortDesc = Str::limit($detail->description, 5); // untuk tampilan list
+                                return "Item {$detail->item_no} - {$materialCode} - {$detail->quantity} {$detail->uoi} - {$shortDesc}";
                             })
                             ->toArray();
+                    })
+                    ->tooltip(function ($record) {
+                        if (!$record->deliveryOrderReceiptDetails?->count()) {
+                            return null;
+                        }
+
+                        return $record->deliveryOrderReceiptDetails
+                            ->map(function ($detail) {
+                                $materialCode = $detail->material_code ?: 'None';
+                                return "{$detail->description}";
+                            })
+                            ->implode("\n");
                     })
                     ->expandableLimitedList(),
 
                 Tables\Columns\TextColumn::make('locations.name')
                     ->label('Lokasi')
+                    ->badge()
+                    ->color('info')
                     ->sortable()
                     ->searchable(),
 
@@ -271,13 +287,13 @@ class DeliveryOrderReceiptResource extends Resource
                 Tables\Columns\TextColumn::make('receivedBy.name')
                     ->label('Diterima Oleh')
                     ->color('warning')
-                    ->icon('heroicon-o-user')
+                    ->icon('heroicon-s-user')
                     ->searchable(),
 
                 Tables\Columns\TextColumn::make('createdBy.name')
                     ->label('Dibuat Oleh')
                     ->color('primary')
-                    ->icon('heroicon-o-user')
+                    ->icon('heroicon-s-user')
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('stages.name')
@@ -298,9 +314,17 @@ class DeliveryOrderReceiptResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
-            ])
+                ActionGroup::make([
+                    EditAction::make()
+                        ->color('info')
+                        ->slideOver(),
+                    DeleteAction::make()
+                        ->requiresConfirmation(),
+                ])
+                    ->icon('heroicon-o-ellipsis-horizontal-circle')
+                    ->color('primary')
+                    ->tooltip('Aksi'),
+            ], position: ActionsPosition::AfterCells)
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),

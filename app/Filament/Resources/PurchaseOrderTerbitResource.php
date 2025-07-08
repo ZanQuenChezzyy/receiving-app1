@@ -375,16 +375,6 @@ class PurchaseOrderTerbitResource extends Resource
                         ->color('info')
                         ->slideOver(),
                     DeleteAction::make()
-                        ->authorize(function ($record) {
-                            return Auth::id() !== $record->id;
-                        })
-                        ->using(function ($record) {
-                            if ($record->id === Auth::id()) {
-                                session()->flash('error', 'You cannot delete your own account.');
-                                return false;
-                            }
-                            $record->delete();
-                        })
                         ->requiresConfirmation(),
                 ])
                     ->icon('heroicon-o-ellipsis-horizontal-circle')

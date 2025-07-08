@@ -32,7 +32,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('/')
             ->spa()
-            ->brandLogo(asset('img/laravelchezzy.png'))
+            ->brandLogo(asset('img/logo-pupuk-kaltim.png'))
             ->brandLogoHeight('2rem')
             ->login(Login::class)
             ->profile(EditProfile::class)
@@ -63,7 +63,7 @@ class AdminPanelProvider extends PanelProvider
                     ->formPanelWidth('40%')
                     ->emptyPanelBackgroundColor(Color::hex('#030712'))
                     ->emptyPanelBackgroundImageOpacity('60%')
-                    ->emptyPanelBackgroundImageUrl(asset('img/auth/background-auth.png')),
+                    ->emptyPanelBackgroundImageUrl(asset('img/auth/background-auth.jpg')),
                 LightSwitchPlugin::make(),
             ])
             ->viteTheme('resources/css/filament/admin/theme.css')

@@ -19,6 +19,7 @@ return new class extends Migration {
             $table->text('description');
             $table->string('uoi', 5)->nullable();
             $table->boolean('is_different_location')->default(false);
+            $table->boolean('is_qty_tolerance')->default(false);
             $table->foreignId('location_id')->nullable()->constrained('locations')->nullOnDelete();
             $table->timestamps();
         });

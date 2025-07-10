@@ -17,8 +17,33 @@ class DeliveryOrderReceiptDetail extends Model
         'description',
         'uoi',
         'is_different_location',
+        'is_qty_tolerance',
         'location_id',
     ];
+
+    public static function getQtyPoAndReceived($purchaseOrderTerbitId, $itemNo, $excludeDetailId = null): array
+    {
+        $po = PurchaseOrderTerbit::find($purchaseOrderTerbitId);
+
+        if (!$po || !$itemNo)
+            return [0, 0];
+
+        $qtyPo = (float) $po->qty_po;
+        $poNo = $po->purchase_order_no;
+
+        $query = self::where('item_no', $itemNo)
+            ->whereHas('deliveryOrderReceipts', function ($q) use ($poNo) {
+                $q->whereHas('purchaseOrderTerbits', fn($q2) => $q2->where('purchase_order_no', $poNo));
+            });
+
+        if ($excludeDetailId) {
+            $query->where('id', '!=', $excludeDetailId);
+        }
+
+        $qtyReceived = (float) $query->sum('quantity');
+
+        return [$qtyPo, $qtyReceived];
+    }
 
     public function locations(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {

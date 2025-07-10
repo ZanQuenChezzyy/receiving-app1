@@ -11,11 +11,12 @@ class DeliveryOrderReceipt extends Model
 
     protected $fillable = [
         'purchase_order_terbit_id',
+        'nomor_do',
         'location_id',
         'received_date',
         'received_by',
         'created_by',
-        'stage_id',
+        'tahapan',
     ];
 
     public function receivedBy(): \Illuminate\Database\Eloquent\Relations\BelongsTo
@@ -32,13 +33,6 @@ class DeliveryOrderReceipt extends Model
     {
         return $this->belongsTo(\App\Models\Location::class, 'location_id', 'id');
     }
-
-
-    public function stages(): \Illuminate\Database\Eloquent\Relations\BelongsTo
-    {
-        return $this->belongsTo(\App\Models\Stage::class, 'stage_id', 'id');
-    }
-
 
     public function purchaseOrderTerbits(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {

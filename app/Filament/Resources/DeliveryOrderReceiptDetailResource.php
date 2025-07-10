@@ -80,9 +80,10 @@ class DeliveryOrderReceiptDetailResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('description')
-                    ->label('Deskripsi')
+                    ->label('Deskripsi Item')
                     ->sortable()
                     ->limit(20)
+                    ->tooltip(fn($record) => $record->description ?: 'Tidak ada deskripsi')
                     ->width('80px') // atur lebar biar kompak
                     ->placeholder('None'),
 
@@ -126,16 +127,20 @@ class DeliveryOrderReceiptDetailResource extends Resource
                     ->width('80px') // atur lebar biar kompak
                     ->color('warning'),
 
-                TextColumn::make('vendor_name')
+                TextColumn::make('deliveryOrderReceipts.purchaseOrderTerbits.vendor_id_name')
                     ->label('Nama Vendor')
                     ->getStateUsing(function ($record) {
                         $full = $record->deliveryOrderReceipts?->purchaseOrderTerbits?->vendor_id_name ?? '';
                         return $full ? Str::after($full, '-') : '-';
                     })
+                    ->tooltip(function ($record) {
+                        $full = $record->deliveryOrderReceipts?->purchaseOrderTerbits?->vendor_id_name ?? '';
+                        return $full ? Str::after($full, '-') : null;
+                    })
                     ->color('success')
                     ->searchable()
-                    ->alignLeft()
-                    ->wrap(),
+                    ->limit(15)
+                    ->alignLeft(),
 
                 TextColumn::make('lokasi')
                     ->label('Lokasi Item')
@@ -157,12 +162,12 @@ class DeliveryOrderReceiptDetailResource extends Resource
                     ->label('Diterima Oleh')
                     ->color('warning')
                     ->icon('heroicon-s-user')
+                    ->limit(15)
                     ->searchable(),
 
                 TextColumn::make('created_at')
-                    ->label('Dibuat')
+                    ->label('Tanggal Dibuat')
                     ->dateTime('d M Y, H:i')
-                    ->toggleable(isToggledHiddenByDefault: true)
                     ->color('gray'),
 
                 TextColumn::make('updated_at')
@@ -176,16 +181,7 @@ class DeliveryOrderReceiptDetailResource extends Resource
                 // Tambahkan jika ingin menyaring berdasarkan PO, lokasi, dll
             ])
             ->actions([
-                ActionGroup::make([
-                    EditAction::make()
-                        ->color('info')
-                        ->slideOver(),
-                    DeleteAction::make()
-                        ->requiresConfirmation(),
-                ])
-                    ->icon('heroicon-o-ellipsis-horizontal-circle')
-                    ->color('primary')
-                    ->tooltip('Aksi'),
+                //
             ], position: ActionsPosition::AfterCells)
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

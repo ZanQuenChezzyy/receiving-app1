@@ -13,11 +13,12 @@ return new class extends Migration {
         Schema::create('delivery_order_receipts', function (Blueprint $table) {
             $table->id();
             $table->foreignId('purchase_order_terbit_id')->constrained('purchase_order_terbits')->cascadeOnDelete();
+            $table->string('nomor_do', 15);
             $table->foreignId('location_id')->constrained('locations')->cascadeOnDelete();
             $table->date('received_date');
             $table->foreignId('received_by')->constrained('users')->cascadeOnDelete();
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('stage_id')->nullable()->constrained('stages')->cascadeOnDelete();
+            $table->string('tahapan', 100)->nullable();
             $table->timestamps();
         });
     }

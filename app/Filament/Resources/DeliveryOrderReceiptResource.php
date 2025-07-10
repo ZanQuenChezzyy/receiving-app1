@@ -5,13 +5,17 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\DeliveryOrderReceiptResource\Pages;
 use App\Filament\Resources\DeliveryOrderReceiptResource\RelationManagers;
 use App\Models\DeliveryOrderReceipt;
+use App\Models\DeliveryOrderReceiptDetail;
+use App\Models\PurchaseOrderTerbit;
 use Filament\Forms;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Group;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Actions\ActionGroup;
@@ -44,12 +48,24 @@ class DeliveryOrderReceiptResource extends Resource
                                     Select::make('purchase_order_terbit_id')
                                         ->label('Nomor Purchase Order')
                                         ->placeholder('Pilih Nomor PO')
-                                        ->relationship('purchaseOrderTerbits', 'purchase_order_no')
+                                        ->relationship(
+                                            'purchaseOrderTerbits',
+                                            'purchase_order_no',
+                                            fn($query) => $query
+                                                ->selectRaw('MIN(id) as id, purchase_order_no')
+                                                ->groupBy('purchase_order_no')
+                                                ->orderBy('purchase_order_no')
+                                        )
                                         ->searchable()
                                         ->live()
-                                        ->unique()
-                                        ->required()
-                                        ->columnSpanFull(),
+                                        ->required(),
+
+                                    Forms\Components\TextInput::make('nomor_do')
+                                        ->label('Nomor Delivery Order (DO)')
+                                        ->placeholder('Masukkan Nomor DO')
+                                        ->minLength(10)
+                                        ->maxLength(15)
+                                        ->required(),
 
                                     Forms\Components\DatePicker::make('received_date')
                                         ->label('Tanggal Terima DO')
@@ -78,11 +94,10 @@ class DeliveryOrderReceiptResource extends Resource
                                     Forms\Components\hidden::make('created_by')
                                         ->default(Auth::user()->id),
 
-                                    Forms\Components\Select::make('stage_id')
+                                    Forms\Components\TextInput::make('tahapan')
                                         ->label('Tahapan')
-                                        ->relationship('stages', 'name')
-                                        ->preload()
-                                        ->searchable()
+                                        ->placeholder('Masukkan Tahapan')
+                                        ->maxLength(100)
                                         ->nullable(),
                                 ])
                                 ->columnSpan(1)
@@ -100,12 +115,12 @@ class DeliveryOrderReceiptResource extends Resource
                                                 return new HtmlString('<em>Silakan pilih nomor PO terlebih dahulu.</em>');
                                             }
 
-                                            $po = \App\Models\PurchaseOrderTerbit::find($poId, ['purchase_order_no']);
+                                            $po = PurchaseOrderTerbit::find($poId, ['purchase_order_no']);
                                             if (!$po) {
                                                 return new HtmlString('<em>Data PO tidak ditemukan.</em>');
                                             }
 
-                                            $items = \App\Models\PurchaseOrderTerbit::query()
+                                            $items = PurchaseOrderTerbit::query()
                                                 ->where('purchase_order_no', $po->purchase_order_no)
                                                 ->get(['item_no', 'material_code', 'description', 'qty_po', 'uoi']);
 
@@ -131,7 +146,7 @@ class DeliveryOrderReceiptResource extends Resource
                                     ->label('Detail Penerimaan')
                                     ->relationship()
                                     ->schema([
-                                        Grid::make(2)
+                                        Grid::make(Auth::user()->hasRole('Administrator') ? 3 : 2)
                                             ->schema([
                                                 Forms\Components\Select::make('item_no')
                                                     ->label('No Item')
@@ -173,7 +188,7 @@ class DeliveryOrderReceiptResource extends Resource
                                                         if (!$poId || !$state)
                                                             return;
 
-                                                        $item = \App\Models\PurchaseOrderTerbit::where('purchase_order_no', function ($query) use ($poId) {
+                                                        $item = PurchaseOrderTerbit::where('purchase_order_no', function ($query) use ($poId) {
                                                             $query->select('purchase_order_no')
                                                                 ->from('purchase_order_terbits')
                                                                 ->where('id', $poId)
@@ -188,21 +203,65 @@ class DeliveryOrderReceiptResource extends Resource
                                                             $set('uoi', $item->uoi);
                                                         }
                                                     }),
-                                                Forms\Components\Toggle::make('is_different_location')
-                                                    ->label('Beda Lokasi?')
-                                                    ->helperText('Aktifkan jika lokasi item berbeda dari lokasi utama penerimaan.')
-                                                    ->onColor('primary')
-                                                    ->reactive()
-                                                    ->default(false),
+                                                Group::make()
+                                                    ->schema([
+                                                        Forms\Components\Toggle::make('is_different_location')
+                                                            ->label('Beda Lokasi?')
+                                                            ->helperText('Jika lokasi berbeda dari lokasi utama.')
+                                                            ->onColor('primary')
+                                                            ->reactive()
+                                                            ->default(false),
+
+                                                        Forms\Components\Toggle::make('is_qty_tolerance')
+                                                            ->label('Toleransi Qty?')
+                                                            ->helperText('Jika Qty diterima lebih dari Qty PO.')
+                                                            ->onColor('primary')
+                                                            ->reactive()
+                                                            ->hidden(!Auth::user()->hasRole('Administrator'))
+                                                            ->default(false),
+                                                    ])->columns(Auth::user()->hasRole('Administrator') ? 2 : 1)
+                                                    ->columnSpan(Auth::user()->hasRole('Administrator') ? 2 : 1),
+
                                                 Grid::make(5)
                                                     ->schema([
-                                                        Forms\Components\TextInput::make('quantity')
+                                                        TextInput::make('quantity')
                                                             ->label('Jumlah Diterima')
                                                             ->placeholder('Qty Diterima')
                                                             ->numeric()
                                                             ->suffix(fn(callable $get) => $get('uoi') ?? '')
-                                                            ->columnSpan(2)
-                                                            ->helperText('Diterima: 2 EA, Sisa: 2 EA')
+                                                            ->columnSpan(fn(callable $get) => $get('is_different_location') ? 2 : 5)
+                                                            ->helperText(function (callable $get, $record) {
+                                                                $itemNo = $get('item_no');
+                                                                $poId = $get('../../purchase_order_terbit_id');
+                                                                $uoi = $get('uoi') ?? '';
+                                                                $excludeId = $record?->id;
+
+                                                                [$qtyPo, $qtyReceived] = DeliveryOrderReceiptDetail::getQtyPoAndReceived($poId, $itemNo, $excludeId);
+                                                                $sisa = max(0, $qtyPo - $qtyReceived);
+
+                                                                return new HtmlString("Diterima: {$qtyReceived} {$uoi}<br>Sisa: {$sisa} {$uoi}");
+                                                            })
+                                                            ->rules([
+                                                                fn(Get $get, $record): \Closure =>
+                                                                function (string $attribute, $value, \Closure $fail) use ($get, $record) {
+                                                                    $itemNo = $get('item_no');
+                                                                    $poId = $get('../../purchase_order_terbit_id');
+                                                                    $excludeId = $record?->id;
+                                                                    $isTolerance = $get('is_qty_tolerance') ?? false;
+
+                                                                    // Skip validation if tolerance is allowed
+                                                                    if ($isTolerance) {
+                                                                        return;
+                                                                    }
+
+                                                                    [$qtyPo, $qtyReceived] = DeliveryOrderReceiptDetail::getQtyPoAndReceived($poId, $itemNo, $excludeId);
+                                                                    $sisa = max(0, $qtyPo - $qtyReceived);
+
+                                                                    if ($value > $sisa) {
+                                                                        $fail("Jumlah melebihi sisa PO. Maksimum sisa: {$sisa}");
+                                                                    }
+                                                                }
+                                                            ])
                                                             ->required(),
                                                         Forms\Components\Select::make('location_id')
                                                             ->label('Lokasi Item')
@@ -213,13 +272,14 @@ class DeliveryOrderReceiptResource extends Resource
                                                             ->columnSpan(3)
                                                             ->visible(fn($get) => $get('is_different_location') ?? true),
                                                     ]),
-                                                Forms\Components\hidden::make('material_code'),
-                                                Forms\Components\hidden::make('description'),
-                                                Forms\Components\hidden::make('uoi'),
+                                                Forms\Components\Hidden::make('material_code'),
+                                                Forms\Components\Hidden::make('description'),
+                                                Forms\Components\Hidden::make('uoi'),
                                             ]),
                                     ])
                                     ->defaultItems(1)
                                     ->label('')
+                                    ->disabled(fn(callable $get) => !$get('purchase_order_terbit_id'))
                                     ->addActionLabel('Tambah Item')
                                     ->columns(2),
                             ])
@@ -233,11 +293,17 @@ class DeliveryOrderReceiptResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('purchaseOrderTerbits.purchase_order_no')
-                    ->label('No PO')
+                    ->label('Nomor PO')
                     ->sortable()
                     ->searchable()
                     ->color('primary')
                     ->icon('heroicon-s-document-text'),
+
+                Tables\Columns\TextColumn::make('received_date')
+                    ->label('Tanggal Terima')
+                    ->date('l, d F Y')
+                    ->sortable()
+                    ->color('gray'),
 
                 Tables\Columns\TextColumn::make('deliveryOrderReceiptDetails.item_no')
                     ->label('Item Diterima')
@@ -278,12 +344,6 @@ class DeliveryOrderReceiptResource extends Resource
                     ->sortable()
                     ->searchable(),
 
-                Tables\Columns\TextColumn::make('received_date')
-                    ->label('Tanggal Terima')
-                    ->date('l, d F Y')
-                    ->sortable()
-                    ->color('gray'),
-
                 Tables\Columns\TextColumn::make('receivedBy.name')
                     ->label('Diterima Oleh')
                     ->color('warning')
@@ -296,7 +356,7 @@ class DeliveryOrderReceiptResource extends Resource
                     ->icon('heroicon-s-user')
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('stages.name')
+                Tables\Columns\TextColumn::make('tahapan')
                     ->label('Tahapan')
                     ->numeric()
                     ->sortable()

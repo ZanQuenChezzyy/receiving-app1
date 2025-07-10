@@ -37,13 +37,11 @@ class DeliveryOrderReceiptDetailResource extends Resource
     {
         return static::getModel()::count();
     }
-
     public static function getNavigationBadgeColor(): ?string
     {
         $count = static::getModel()::count();
         return $count < 5 ? 'danger' : ($count < 20 ? 'warning' : 'success');
     }
-
     public static function form(Form $form): Form
     {
         return $form

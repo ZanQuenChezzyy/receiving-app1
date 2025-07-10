@@ -256,7 +256,7 @@ class DeliveryOrderReceiptResource extends Resource
                                                                 [$qtyPo, $qtyReceived] = DeliveryOrderReceiptDetail::getQtyPoAndReceived($poId, $itemNo, $excludeId);
                                                                 $sisa = max(0, $qtyPo - $qtyReceived);
 
-                                                                $colorDiterima = '#16a34a'; // Tailwind 'text-green-600'
+                                                                $colorDiterima = $qtyReceived == 0 ? '#6b7280' : '#16a34a'; // Tailwind 'text-green-600'
                                                                 $colorSisa = $sisa == 0 ? '#6b7280' : '#dc2626'; // gray-500 jika sisa 0, red-600 jika masih ada sisa
 
                                                                 return new HtmlString("

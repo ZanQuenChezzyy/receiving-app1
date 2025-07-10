@@ -23,17 +23,31 @@ class DeliveryOrderReceiptDetail extends Model
 
     public static function getQtyPoAndReceived($purchaseOrderTerbitId, $itemNo, $excludeDetailId = null): array
     {
-        $po = PurchaseOrderTerbit::find($purchaseOrderTerbitId);
-
-        if (!$po || !$itemNo)
+        if (!$purchaseOrderTerbitId || !$itemNo) {
             return [0, 0];
+        }
 
-        $qtyPo = (float) $po->qty_po;
-        $poNo = $po->purchase_order_no;
+        // Cari dulu PO-nya (dapatkan purchase_order_no-nya)
+        $po = PurchaseOrderTerbit::find($purchaseOrderTerbitId);
+        if (!$po) {
+            return [0, 0];
+        }
 
+        // Cari baris item berdasarkan purchase_order_no + item_no
+        $itemPo = PurchaseOrderTerbit::where('purchase_order_no', $po->purchase_order_no)
+            ->where('item_no', $itemNo)
+            ->first();
+
+        if (!$itemPo) {
+            return [0, 0];
+        }
+
+        $qtyPo = (float) $itemPo->qty_po;
+
+        // Ambil qty yang sudah diterima untuk item tersebut
         $query = self::where('item_no', $itemNo)
-            ->whereHas('deliveryOrderReceipts', function ($q) use ($poNo) {
-                $q->whereHas('purchaseOrderTerbits', fn($q2) => $q2->where('purchase_order_no', $poNo));
+            ->whereHas('deliveryOrderReceipts', function ($q) use ($po) {
+                $q->whereHas('purchaseOrderTerbits', fn($q2) => $q2->where('purchase_order_no', $po->purchase_order_no));
             });
 
         if ($excludeDetailId) {

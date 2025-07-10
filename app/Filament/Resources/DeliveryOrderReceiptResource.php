@@ -239,7 +239,13 @@ class DeliveryOrderReceiptResource extends Resource
                                                                 [$qtyPo, $qtyReceived] = DeliveryOrderReceiptDetail::getQtyPoAndReceived($poId, $itemNo, $excludeId);
                                                                 $sisa = max(0, $qtyPo - $qtyReceived);
 
-                                                                return new HtmlString("Diterima: {$qtyReceived} {$uoi}<br>Sisa: {$sisa} {$uoi}");
+                                                                $colorDiterima = '#16a34a'; // Tailwind 'text-green-600'
+                                                                $colorSisa = $sisa == 0 ? '#6b7280' : '#dc2626'; // gray-500 jika sisa 0, red-600 jika masih ada sisa
+
+                                                                return new HtmlString("
+                                                                    <span style='color: {$colorDiterima}; font-weight: 500;'>Diterima: {$qtyReceived} {$uoi}</span><br>
+                                                                    <span style='color: {$colorSisa}; font-weight: 500;'>Sisa: {$sisa} {$uoi}</span>
+                                                                ");
                                                             })
                                                             ->rules([
                                                                 fn(Get $get, $record): \Closure =>
@@ -293,11 +299,12 @@ class DeliveryOrderReceiptResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('purchaseOrderTerbits.purchase_order_no')
-                    ->label('Nomor PO')
+                    ->label('Nomor PO & DO')
                     ->sortable()
                     ->searchable()
                     ->color('primary')
-                    ->icon('heroicon-s-document-text'),
+                    ->icon('heroicon-s-document-text')
+                    ->description(fn($record) => 'No. DO: ' . ($record->nomor_do ?? '-')),
 
                 Tables\Columns\TextColumn::make('received_date')
                     ->label('Tanggal Terima')

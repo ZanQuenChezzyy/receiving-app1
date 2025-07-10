@@ -104,7 +104,7 @@ class PurchaseOrderTerbitResource extends Resource
 
                         TextInput::make('purchase_order_and_item')
                             ->label('Purchase Order & Item')
-                            ->disabled() // agar tidak bisa diedit manual
+                            ->disabled()
                             ->dehydrated()
                             ->placeholder('Otomatis Terisi')
                             ->maxLength(20),

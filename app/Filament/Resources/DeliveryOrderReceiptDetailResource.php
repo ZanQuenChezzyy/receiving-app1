@@ -25,8 +25,24 @@ use Illuminate\Support\Str;
 class DeliveryOrderReceiptDetailResource extends Resource
 {
     protected static ?string $model = DeliveryOrderReceiptDetail::class;
+    protected static ?string $label = 'Detail Penerimaan DO';
+    protected static ?string $navigationIcon = 'heroicon-o-document-text';
+    protected static ?string $activeNavigationIcon = 'heroicon-s-document-text';
+    protected static ?string $navigationGroup = 'Receiving';
+    protected static ?int $navigationSort = 2;
+    protected static ?string $navigationBadgeTooltip = 'Total Detail Penerimaan DO';
+    protected static ?string $slug = 'detail-do';
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::count();
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        $count = static::getModel()::count();
+        return $count < 5 ? 'danger' : ($count < 20 ? 'warning' : 'success');
+    }
 
     public static function form(Form $form): Form
     {

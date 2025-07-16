@@ -9,12 +9,14 @@
         "php": "^8.2",
         "awcodes/light-switch": "^1.0",
         "aymanalhattami/filament-slim-scrollbar": "^2.0",
+        "barryvdh/laravel-dompdf": "^3.1",
         "diogogpinto/filament-auth-ui-enhancer": "^1.0",
         "filament/filament": "^3.2",
         "josespinal/filament-record-navigation": "^2.0",
         "laravel/framework": "^11.35.0",
         "laravel/tinker": "^2.9",
         "malzariey/filament-daterangepicker-filter": "^4.0",
+        "simplesoftwareio/simple-qrcode": "^4.2",
         "spatie/laravel-permission": "^6.10"
     },
     "require-dev": {

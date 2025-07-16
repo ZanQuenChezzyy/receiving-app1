@@ -65,11 +65,25 @@ class DeliveryOrderReceiptDetailResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->Groups([
+                GroupingGroup::make('deliveryOrderReceipts.purchaseOrderTerbits.purchase_order_no')
+                    ->label('Nomor PO'),
+                GroupingGroup::make('deliveryOrderReceipts.received_date')
+                    ->label('Tanggal Terima')
+                    ->date()
+                    ->collapsible(),
+            ])
             ->defaultGroup(
                 GroupingGroup::make('deliveryOrderReceipts.purchaseOrderTerbits.purchase_order_no')
-                    ->label('Nomor PO')
+                    ->label('Nomor PO'),
             )
             ->columns([
+                TextColumn::make('deliveryOrderReceipts.received_date')
+                    ->label('Tanggal Terima')
+                    ->date('l, d F Y')
+                    ->sortable()
+                    ->color('gray'),
+
                 TextColumn::make('deliveryOrderReceipts.purchaseOrderTerbits.purchase_order_no')
                     ->label('Nomor PO')
                     ->searchable()
@@ -181,7 +195,8 @@ class DeliveryOrderReceiptDetailResource extends Resource
 
                 TextColumn::make('created_at')
                     ->label('Tanggal Dibuat')
-                    ->dateTime('d M Y, H:i')
+                    ->dateTime('d M Y')
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->color('gray'),
 
                 TextColumn::make('updated_at')

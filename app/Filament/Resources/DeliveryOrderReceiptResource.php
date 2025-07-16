@@ -18,6 +18,7 @@ use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\ActionGroup;
 use Filament\Tables\Actions\DeleteAction;
 use Filament\Tables\Actions\EditAction;
@@ -398,6 +399,13 @@ class DeliveryOrderReceiptResource extends Resource
                 //
             ])
             ->actions([
+                Action::make('Cetak QR')
+                    ->label('Cetak QR')
+                    ->url(fn($record) => route('do-receipt.print-qr', $record->id))
+                    ->icon('heroicon-o-printer')
+                    ->color('gray')
+                    ->button()
+                    ->openUrlInNewTab(),
                 ActionGroup::make([
                     EditAction::make()
                         ->color('info')

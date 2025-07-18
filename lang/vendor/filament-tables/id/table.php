@@ -167,8 +167,8 @@ return [
         'fields' => [
 
             'group' => [
-                'label' => 'Kelompokkan berdasar',
-                'placeholder' => 'Kelompokkan berdasar',
+                'label' => 'Group Berdasarkan',
+                'placeholder' => 'Group Berdasarkan',
             ],
 
             'direction' => [

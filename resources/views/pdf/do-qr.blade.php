@@ -29,9 +29,7 @@
             width: auto;
             font-family: Helvetica;
             font-weight: bold;
-            /* Semua teks dalam table jadi bold */
             color: black;
-            /* Warna teks hitam */
         }
 
         td {
@@ -53,7 +51,6 @@
             $locationRaw = $detail?->is_different_location
                 ? optional($detail->locations)->name ?? 'Lokasi Beda (Tidak diketahui)'
                 : optional($do->locations)->name ?? 'Lokasi Utama (Tidak diketahui)';
-
             $location = \Illuminate\Support\Str::limit($locationRaw, 27);
         @endphp
 
@@ -82,7 +79,7 @@
                     <td>{{ $do->nomor_do }}</td>
                 </tr>
                 <tr>
-                    <td style="width: 40%;">Tanggal Terima</td>
+                    <td style="width: 40%;">Tgl Terima</td>
                     <td style="text-align: center;">:</td>
                     <td>{{ $tanggal }}</td>
                 </tr>

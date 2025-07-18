@@ -20,6 +20,7 @@ use Filament\Tables\Grouping\Group as GroupingGroup;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 class DeliveryOrderReceiptDetailResource extends Resource
@@ -183,6 +184,16 @@ class DeliveryOrderReceiptDetailResource extends Resource
                     })
                     ->badge()
                     ->alignLeft()
+                    ->limit(15)
+                    ->tooltip(function ($record) {
+                        // Jika beda lokasi, tampilkan lokasi dari kolom 'locations'
+                        if ($record->is_different_location) {
+                            return $record->locations?->name ?? 'Lokasi Beda (Tidak diketahui)';
+                        }
+
+                        // Jika tidak beda lokasi, tampilkan lokasi dari relasi 'deliveryOrderReceipt.locations'
+                        return $record->deliveryOrderReceipts?->locations?->name ?? 'Lokasi Utama (Tidak diketahui)';
+                    })
                     ->width('80px') // atur lebar biar kompak
                     ->color('info'),
 
@@ -198,6 +209,23 @@ class DeliveryOrderReceiptDetailResource extends Resource
                     ->dateTime('d M Y')
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->color('gray'),
+
+                TextColumn::make('leadtime')
+                    ->label('Lead Time (Hari)')
+                    ->getStateUsing(function ($record) {
+                        // Konversi keduanya jadi tanggal (tanpa jam)
+                        $createdDate = Carbon::parse($record->created_at)->startOfDay();
+                        $receivedDate = Carbon::parse($record->deliveryOrderReceipt?->received_date)->startOfDay();
+
+                        if ($createdDate && $receivedDate) {
+                            return $createdDate->diffInDays($receivedDate) . ' Hari';
+                        }
+
+                        return '-';
+                    })
+                    ->color('gray')
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->icon('heroicon-o-clock'),
 
                 TextColumn::make('updated_at')
                     ->label('Diperbarui')

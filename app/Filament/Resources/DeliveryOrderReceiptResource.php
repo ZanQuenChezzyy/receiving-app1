@@ -20,12 +20,15 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\ActionGroup;
+use Filament\Tables\Actions\BulkAction;
 use Filament\Tables\Actions\DeleteAction;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Enums\ActionsPosition;
+use Filament\Tables\Grouping\Group as GroupingGroup;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
@@ -315,6 +318,18 @@ class DeliveryOrderReceiptResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->groups([
+                GroupingGroup::make('purchaseOrderTerbits.purchase_order_no')
+                    ->label('Nomor PO'),
+                GroupingGroup::make('received_date')
+                    ->label('Tanggal Terima')
+                    ->date(),
+            ])
+            ->defaultGroup(
+                GroupingGroup::make('received_date')
+                    ->label('Tanggal Terima')
+                    ->date(),
+            )
             ->columns([
                 Tables\Columns\TextColumn::make('purchaseOrderTerbits.purchase_order_no')
                     ->label('Nomor PO & DO')
@@ -366,13 +381,15 @@ class DeliveryOrderReceiptResource extends Resource
                     ->label('Lokasi')
                     ->badge()
                     ->color('info')
-                    ->sortable()
+                    ->limit(15)
+                    ->tooltip(fn($record) => $record->locations->name)
                     ->searchable(),
 
                 Tables\Columns\TextColumn::make('receivedBy.name')
                     ->label('Diterima Oleh')
                     ->color('warning')
                     ->icon('heroicon-s-user')
+                    ->limit(15)
                     ->searchable(),
 
                 Tables\Columns\TextColumn::make('createdBy.name')
@@ -399,8 +416,8 @@ class DeliveryOrderReceiptResource extends Resource
                 //
             ])
             ->actions([
-                Action::make('Cetak QR')
-                    ->label('Cetak QR')
+                Action::make('Cetak')
+                    ->label('Cetak')
                     ->url(fn($record) => route('do-receipt.print-qr', $record->id))
                     ->icon('heroicon-o-printer')
                     ->color('gray')
@@ -421,6 +438,16 @@ class DeliveryOrderReceiptResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
+                BulkAction::make('cetak_qr')
+                    ->label('Cetak Dipilih')
+                    ->icon('heroicon-o-printer')
+                    ->action(function (Collection $records) {
+                        $ids = $records->pluck('id')->toArray();
+                        return redirect()->route('qr.bulk.print', ['ids' => implode(',', $ids)]);
+                    })
+                    ->color('gray')
+                    ->deselectRecordsAfterCompletion()
+                    ->openUrlInNewTab(),
             ]);
     }
 

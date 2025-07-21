@@ -1,14 +1,14 @@
 <?php
 
-namespace App\Filament\Resources\ReceivingLogResource\Pages;
+namespace App\Filament\Resources\TransmittalResource\Pages;
 
-use App\Filament\Resources\ReceivingLogResource;
+use App\Filament\Resources\TransmittalResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 
-class EditReceivingLog extends EditRecord
+class EditTransmittal extends EditRecord
 {
-    protected static string $resource = ReceivingLogResource::class;
+    protected static string $resource = TransmittalResource::class;
 
     protected function getHeaderActions(): array
     {

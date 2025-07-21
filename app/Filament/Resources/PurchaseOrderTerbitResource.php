@@ -32,8 +32,25 @@ use Malzariey\FilamentDaterangepickerFilter\Filters\DateRangeFilter;
 class PurchaseOrderTerbitResource extends Resource
 {
     protected static ?string $model = PurchaseOrderTerbit::class;
+    protected static ?string $label = 'Purchase Order Terbit';
+    protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
+    protected static ?string $activeNavigationIcon = 'heroicon-s-clipboard-document-list';
+    protected static ?string $navigationGroup = 'Data Master';
+    protected static ?string $slug = 'purchase-order-terbit';
+    protected static ?int $navigationSort = 17;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::count();
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        $count = static::getModel()::count();
+        return $count < 1 ? 'danger' : 'success';
+    }
+
+    protected static ?string $navigationBadgeTooltip = 'Total PO Terbit';
 
     public static function form(Form $form): Form
     {

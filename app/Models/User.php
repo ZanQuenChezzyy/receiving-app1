@@ -55,11 +55,6 @@ class User extends Authenticatable implements HasAvatar
         return $this->avatar_url ? Storage::url($this->avatar_url) : null;
     }
 
-    public function userMaterialTypes(): \Illuminate\Database\Eloquent\Relations\HasMany
-    {
-        return $this->hasMany(\App\Models\UserMaterialType::class);
-    }
-
 
     public function deliveryOrderReceipts(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
@@ -67,15 +62,9 @@ class User extends Authenticatable implements HasAvatar
     }
 
 
-    public function receivingLogs(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function transmittals(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(\App\Models\ReceivingLog::class);
-    }
-
-
-    public function statusHistories(): \Illuminate\Database\Eloquent\Relations\HasMany
-    {
-        return $this->hasMany(\App\Models\StatusHistory::class);
+        return $this->hasMany(\App\Models\Transmittal::class);
     }
 
 }

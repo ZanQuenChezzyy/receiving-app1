@@ -262,7 +262,7 @@ class DeliveryOrderReceiptResource extends Resource
 
                                                                 $colorDiterima = $qtyReceived == 0 ? '#6b7280' : '#16a34a'; // Tailwind 'text-green-600'
                                                                 $colorSisa = $sisa == 0 ? '#6b7280' : '#dc2626'; // gray-500 jika sisa 0, red-600 jika masih ada sisa
-
+                                                    
                                                                 return new HtmlString("
                                                                     <span style='color: {$colorDiterima}; font-weight: 500;'>Diterima: {$qtyReceived} {$uoi}</span><br>
                                                                     <span style='color: {$colorSisa}; font-weight: 500;'>Sisa: {$sisa} {$uoi}</span>

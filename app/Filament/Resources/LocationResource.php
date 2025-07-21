@@ -16,8 +16,25 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 class LocationResource extends Resource
 {
     protected static ?string $model = Location::class;
+    protected static ?string $label = 'Lokasi';
+    protected static ?string $navigationIcon = 'heroicon-o-map-pin';
+    protected static ?string $activeNavigationIcon = 'heroicon-s-map-pin';
+    protected static ?string $navigationGroup = 'Data Master';
+    protected static ?string $slug = 'lokasi';
+    protected static ?int $navigationSort = 16;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::count();
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        $count = static::getModel()::count();
+        return $count < 1 ? 'danger' : 'success';
+    }
+
+    protected static ?string $navigationBadgeTooltip = 'Total Lokasi';
 
     public static function form(Form $form): Form
     {
@@ -38,7 +55,7 @@ class LocationResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
-                    ->label('Location Name')
+                    ->label('Nama Lokasi')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()

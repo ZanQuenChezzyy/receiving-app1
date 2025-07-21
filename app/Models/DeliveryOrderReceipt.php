@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 class DeliveryOrderReceipt extends Model
 {
@@ -17,7 +18,30 @@ class DeliveryOrderReceipt extends Model
         'received_by',
         'created_by',
         'tahapan',
+        'do_code',
     ];
+
+    protected static function booted()
+    {
+        static::saved(function ($do) {
+            // Pastikan relasi PO dimuat
+            if (!$do->relationLoaded('purchaseOrderTerbits')) {
+                $do->load('purchaseOrderTerbits');
+            }
+
+            $nomorPo = $do->purchaseOrderTerbits?->purchase_order_no ?? '';
+            $nomorDo = preg_replace('/[^A-Za-z0-9]/', '', $do->nomor_do ?? '');
+            $tanggal = $do->received_date ? Carbon::parse($do->received_date)->format('dmY') : '';
+
+            $generatedCode = $nomorPo . $nomorDo . $tanggal;
+
+            // Hanya update jika berbeda
+            if ($do->do_code !== $generatedCode) {
+                $do->do_code = $generatedCode;
+                $do->saveQuietly(); // Hindari trigger loop event
+            }
+        });
+    }
 
     public function receivedBy(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
@@ -45,10 +69,9 @@ class DeliveryOrderReceipt extends Model
         return $this->hasMany(\App\Models\DeliveryOrderReceiptDetail::class);
     }
 
-
-    public function receivingLogs(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function transmittals(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(\App\Models\ReceivingLog::class);
+        return $this->hasMany(\App\Models\Transmittal::class);
     }
 
 }

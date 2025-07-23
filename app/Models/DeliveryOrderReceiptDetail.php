@@ -70,4 +70,10 @@ class DeliveryOrderReceiptDetail extends Model
         return $this->belongsTo(\App\Models\DeliveryOrderReceipt::class, 'delivery_order_receipt_id', 'id');
     }
 
+
+    public function transmittalKembaliDetails(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\TransmittalKembaliDetail::class);
+    }
+
 }

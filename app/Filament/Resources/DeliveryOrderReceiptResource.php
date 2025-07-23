@@ -84,7 +84,7 @@ class DeliveryOrderReceiptResource extends Resource
                                     Forms\Components\TextInput::make('nomor_do')
                                         ->label('Nomor Delivery Order (DO)')
                                         ->placeholder('Masukkan Nomor DO')
-                                        ->minLength(10)
+                                        ->minLength(2)
                                         ->maxLength(15)
                                         ->required(),
 

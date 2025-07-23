@@ -44,14 +44,14 @@
         @php
             $itemNo = explode(' ', $item['label'])[1];
             $detail = $do->deliveryOrderReceiptDetails->firstWhere('item_no', $itemNo);
-            $description = isset($detail->description) ? \Illuminate\Support\Str::limit($detail->description, 27) : '-';
+            $description = isset($detail->description) ? \Illuminate\Support\Str::limit($detail->description, 24) : '-';
             $poNo = optional($do->purchaseOrderTerbits)->purchase_order_no ?? '-';
             $receivedBy = \Illuminate\Support\Str::limit(optional($do->receivedBy)->name ?? '-', 13);
             $tanggal = \Carbon\Carbon::parse($do->received_date)->format('d/m/Y');
             $locationRaw = $detail?->is_different_location
                 ? optional($detail->locations)->name ?? 'Lokasi Beda (Tidak diketahui)'
                 : optional($do->locations)->name ?? 'Lokasi Utama (Tidak diketahui)';
-            $location = \Illuminate\Support\Str::limit($locationRaw, 27);
+            $location = \Illuminate\Support\Str::limit($locationRaw, 24);
         @endphp
 
         <div class="page">

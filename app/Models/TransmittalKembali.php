@@ -5,16 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Transmittal extends Model
+class TransmittalKembali extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'code',
-        'delivery_order_receipt_id',
-        'tanggal_kirim',
         'tanggal_kembali',
-        'code_istek',
         'created_by',
     ];
 
@@ -24,9 +20,9 @@ class Transmittal extends Model
     }
 
 
-    public function deliveryOrderReceipt(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function transmittalKembaliDetails(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->belongsTo(\App\Models\DeliveryOrderReceipt::class, 'delivery_order_receipt_id', 'id');
+        return $this->hasMany(\App\Models\TransmittalKembaliDetail::class);
     }
 
 }

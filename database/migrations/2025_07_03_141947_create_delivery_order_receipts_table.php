@@ -19,7 +19,7 @@ return new class extends Migration {
             $table->foreignId('received_by')->constrained('users')->cascadeOnDelete();
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
             $table->string('tahapan', 100)->nullable();
-            $table->string('do_code', 50)->unique()->index();
+            $table->string('do_code', 50)->nullable()->unique()->index();
             $table->timestamps();
         });
     }

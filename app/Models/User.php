@@ -61,10 +61,15 @@ class User extends Authenticatable implements HasAvatar
         return $this->hasMany(\App\Models\DeliveryOrderReceipt::class);
     }
 
-
-    public function transmittals(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function transmittalKirims(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(\App\Models\Transmittal::class);
+        return $this->hasMany(\App\Models\TransmittalKirim::class);
+    }
+
+
+    public function transmittalKembalis(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\TransmittalKembali::class);
     }
 
 }

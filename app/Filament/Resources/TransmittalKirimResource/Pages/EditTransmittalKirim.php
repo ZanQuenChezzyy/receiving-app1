@@ -1,14 +1,14 @@
 <?php
 
-namespace App\Filament\Resources\TransmittalResource\Pages;
+namespace App\Filament\Resources\TransmittalKirimResource\Pages;
 
-use App\Filament\Resources\TransmittalResource;
+use App\Filament\Resources\TransmittalKirimResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 
-class EditTransmittal extends EditRecord
+class EditTransmittalKirim extends EditRecord
 {
-    protected static string $resource = TransmittalResource::class;
+    protected static string $resource = TransmittalKirimResource::class;
 
     protected function getHeaderActions(): array
     {

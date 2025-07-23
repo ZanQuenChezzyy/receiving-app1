@@ -69,9 +69,8 @@ class DeliveryOrderReceipt extends Model
         return $this->hasMany(\App\Models\DeliveryOrderReceiptDetail::class);
     }
 
-    public function transmittals(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function transmittalKirims(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(\App\Models\Transmittal::class);
+        return $this->hasMany(\App\Models\TransmittalKirim::class);
     }
-
 }

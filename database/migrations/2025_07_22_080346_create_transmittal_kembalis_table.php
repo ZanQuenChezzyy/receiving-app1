@@ -10,13 +10,9 @@ return new class extends Migration {
      */
     public function up(): void
     {
-        Schema::create('transmittals', function (Blueprint $table) {
+        Schema::create('transmittal_kembalis', function (Blueprint $table) {
             $table->id();
-            $table->string('code', 50);
-            $table->foreignId('delivery_order_receipt_id')->constrained('delivery_order_receipts')->cascadeOnDelete();
-            $table->date('tanggal_kirim');
-            $table->date('tanggal_kembali')->nullable();
-            $table->string('code_istek', 50)->nullable();
+            $table->date('tanggal_kembali');
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
             $table->timestamps();
         });
@@ -27,6 +23,6 @@ return new class extends Migration {
      */
     public function down(): void
     {
-        Schema::dropIfExists('transmittals');
+        Schema::dropIfExists('transmittal_kembalis');
     }
 };

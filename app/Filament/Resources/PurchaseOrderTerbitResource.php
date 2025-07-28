@@ -281,6 +281,9 @@ class PurchaseOrderTerbitResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function (Builder $query) {
+                return $query->latest(); // urutkan berdasarkan created_at DESC
+            })
             ->poll('10s')
             ->columns([
                 TextColumn::make('purchase_order_and_item')

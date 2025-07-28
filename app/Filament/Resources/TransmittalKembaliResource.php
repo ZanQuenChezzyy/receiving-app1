@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Clusters\TransmittalIstek;
 use App\Filament\Resources\TransmittalKembaliResource\Pages;
 use App\Filament\Resources\TransmittalKembaliResource\RelationManagers;
 use App\Models\TransmittalKembali;
@@ -28,7 +29,7 @@ use Filament\Forms\Components\Actions\Action;
 class TransmittalKembaliResource extends Resource
 {
     protected static ?string $model = TransmittalKembali::class;
-
+    protected static ?string $cluster = TransmittalIstek::class;
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     public static function form(Form $form): Form
@@ -163,6 +164,9 @@ class TransmittalKembaliResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function (Builder $query) {
+                return $query->latest(); // urutkan berdasarkan created_at DESC
+            })
             ->columns([
                 Tables\Columns\TextColumn::make('tanggal_kembali')
                     ->date()

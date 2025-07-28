@@ -66,6 +66,9 @@ class DeliveryOrderReceiptDetailResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function (Builder $query) {
+                return $query->latest(); // urutkan berdasarkan created_at DESC
+            })
             ->Groups([
                 GroupingGroup::make('deliveryOrderReceipts.purchaseOrderTerbits.purchase_order_no')
                     ->label('Nomor PO'),

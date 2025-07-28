@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Clusters\TransmittalIstek;
 use App\Filament\Resources\TransmittalKirimResource\Pages;
 use App\Filament\Resources\TransmittalKirimResource\RelationManagers;
 use App\Models\DeliveryOrderReceipt;
@@ -16,16 +17,19 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Actions\ActionGroup;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 
 class TransmittalKirimResource extends Resource
 {
     protected static ?string $model = TransmittalKirim::class;
-
+    protected static ?string $cluster = TransmittalIstek::class;
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     public static function form(Form $form): Form
@@ -141,6 +145,19 @@ class TransmittalKirimResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function (Builder $query) {
+                return $query->latest(); // urutkan berdasarkan created_at DESC
+            })
+            ->groups([
+                Group::make('tanggal_kirim')
+                    ->label('Tanggal Kirim')
+                    ->date()
+            ])
+            ->defaultGroup(
+                Group::make('tanggal_kirim')
+                    ->label('tanggal_kirim')
+                    ->date()
+            )
             ->columns([
                 TextColumn::make('tanggal_kirim')
                     ->label('Tanggal Kirim')
@@ -181,13 +198,28 @@ class TransmittalKirimResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
+                ActionGroup::make([
+                    Tables\Actions\ViewAction::make(),
+                    Tables\Actions\EditAction::make(),
+                ])
+                    ->icon('heroicon-o-ellipsis-horizontal-circle')
+                    ->color('info')
+                    ->tooltip('Aksi')
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
+                Tables\Actions\BulkAction::make('print')
+                    ->label('Cetak Transmittal')
+                    ->icon('heroicon-o-printer')
+                    ->color('gray')
+                    ->action(function (Collection $records) {
+                        $ids = $records->pluck('id')->toArray();
+                        $url = route('transmittal-kirim.bulk-print', ['records' => $ids]);
+
+                        return redirect($url);
+                    }),
             ]);
     }
 

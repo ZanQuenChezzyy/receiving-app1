@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Clusters\TransmittalIstek;
 use App\Filament\Resources\TransmittalKembaliDetailResource\Pages;
 use App\Filament\Resources\TransmittalKembaliDetailResource\RelationManagers;
 use App\Models\TransmittalKembaliDetail;
@@ -16,6 +17,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 class TransmittalKembaliDetailResource extends Resource
 {
     protected static ?string $model = TransmittalKembaliDetail::class;
+    protected static ?string $cluster = TransmittalIstek::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
@@ -47,6 +49,9 @@ class TransmittalKembaliDetailResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function (Builder $query) {
+                return $query->latest(); // urutkan berdasarkan created_at DESC
+            })
             ->columns([
                 Tables\Columns\TextColumn::make('transmittalKembali.id')
                     ->numeric()

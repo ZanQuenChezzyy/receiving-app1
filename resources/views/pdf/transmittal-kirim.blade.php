@@ -2,123 +2,217 @@
 <html>
 
 <head>
-    <title></title>
+    <meta content="text/html; charset=UTF-8" http-equiv="content-type">
+    <style type="text/css">
+        @import url('https://fonts.googleapis.com/css2?family=Quattrocento+Sans:wght@400;700&display=swap');
+
+        @page {
+            size: A4 portrait;
+            margin: 10mm;
+        }
+
+        body,
+        p,
+        span,
+        td,
+        th {
+            font-family: 'Quattrocento Sans', sans-serif;
+            font-size: 5pt;
+            margin: 0;
+            padding: 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            word-wrap: break-word;
+        }
+
+        th,
+        td {
+            padding: 2pt 5pt;
+            border: 1pt solid #000;
+            vertical-align: middle;
+        }
+
+        th {
+            background-color: #f1a984;
+            font-weight: bold;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .text-left {
+            text-align: left;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .text-justify {
+            text-align: justify;
+        }
+
+        /* Optional: jaga agar judul tetap besar & konsisten */
+        h1,
+        h2,
+        h3,
+        h4 {
+            margin: 0;
+            color: #0f4761;
+            font-family: 'Play', sans-serif;
+        }
+
+        h1 {
+            font-size: 20pt;
+            padding: 18pt 0 4pt;
+        }
+
+        h2 {
+            font-size: 16pt;
+            padding: 8pt 0 4pt;
+        }
+
+        h3 {
+            font-size: 14pt;
+        }
+
+        h4 {
+            font-size: 11pt;
+            font-style: italic;
+        }
+
+        .title {
+            font-size: 28pt;
+            color: #000;
+        }
+
+        .subtitle {
+            font-size: 14pt;
+            color: #595959;
+        }
+
+        /* Utility */
+        .small-bold {
+            font-weight: bold;
+            font-size: 8pt;
+        }
+
+        .small {
+            font-size: 6pt;
+        }
+
+        td,
+        th {
+            padding: 2pt 5pt;
+            border: 0.3pt solid #000;
+            vertical-align: middle;
+            white-space: normal;
+            overflow: visible;
+            text-overflow: unset;
+        }
+
+        td:nth-child(6) {
+            max-width: 200px;
+            word-break: break-word;
+        }
+    </style>
 </head>
 
 <body>
-    <p><span style="font-family: Helvetica;"><span style="font-size: 8px;"><strong>Tanggal Cetak:
-                    (tanggal_cetak)</strong></span><br></span></p>
-    <table style="width: 60%; margin-right: calc(28%); margin-left: calc(13%);">
-        <tbody>
-            <tr>
-                <td style="width: 45%; text-align: center;"><span style="font-family: Helvetica;"><span
-                            style="font-size: 8px; line-height: 1;"><strong>TRANSMITTAL<br>DOCUMENT PENGAJUAN QUALITY
-                                CONTROL</strong></span></span></td>
-                <td style="width: 20%; text-align: right;"><span
-                        style="font-family: Helvetica; font-size: 8px;"><strong>DIKIRIM OLEH :</strong></span></td>
-                <td style="width: 33%; text-align: center;"><span
-                        style="font-family: Helvetica; font-size: 8px;"><strong>(user-&gt;name)</strong></span></td>
-            </tr>
-            <tr>
-                <td style="width: 45%; text-align: center;"><span style="font-family: Helvetica;"><strong><span
-                                style="font-size: 8px;">RECEIVING--&gt;ISTEK</span></strong></span></td>
-                <td style="width: 30%; text-align: right;"><span
-                        style="font-family: Helvetica; font-size: 8px;"><strong>DITERIMA OLEH :</strong></span></td>
-                <td style="width: 35%; text-align: center;"><span
-                        style="font-family: Helvetica; font-size: 8px;"><strong>-</strong></span></td>
-            </tr>
-        </tbody>
-    </table>
-    <p><strong style="font-family: Helvetica; font-size: 8px; text-align: inherit;">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
-            &nbsp; &nbsp; &nbsp;&nbsp;</strong><strong
-            style="font-family: Helvetica; font-size: 8px; text-align: inherit;"> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
-            &nbsp; &nbsp; &nbsp;</strong><strong style="font-family: Helvetica; font-size: 8px; text-align: inherit;">
-            &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</strong><strong
-            style="font-family: Helvetica; font-size: 8px; text-align: inherit;"> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
-            &nbsp; &nbsp; &nbsp;</strong><strong style="font-family: Helvetica; font-size: 8px; text-align: inherit;">
-            &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</strong><strong
-            style="font-family: Helvetica; font-size: 8px; text-align: inherit;"> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
-            &nbsp; &nbsp; &nbsp;</strong><strong style="font-family: Helvetica; font-size: 8px; text-align: inherit;">
-            &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</strong><strong
-            style="font-family: Helvetica; font-size: 8px; text-align: inherit;">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
-            &nbsp; &nbsp; &nbsp; &nbsp;</strong></p>
-    <table style="width: 100%;">
-        <tbody>
-            <tr>
-                <td style="width: 11.1849%; text-align: center; background-color: rgb(251, 160, 38);">
-                    <article style="line-height: 1;"><span style="line-height: 1; font-family: Helvetica;"><strong><span
-                                    style="font-size: 8px;">TANGGAL KIRIM</span></strong></span><span
-                            style="font-family: Helvetica; font-size: 8px; line-height: 1;"><strong><br></strong></span>
-                    </article>
-                </td>
-                <td style="width: 8.5904%; line-height: 1; text-align: center; background-color: rgb(251, 160, 38);">
-                    <article style="line-height: 1;"><span
-                            style="line-height: 1; font-family: Helvetica; font-size: 8px;"><strong>PO
-                                NO.</strong></span></article>
-                </td>
-                <td style="width: 10.9977%; line-height: 1; text-align: center; background-color: rgb(251, 160, 38);">
-                    <article style="line-height: 1;"><span
-                            style="line-height: 1; font-family: Helvetica; font-size: 8px;"><strong>DOCUMENT
-                                GR</strong></span></article>
-                </td>
-                <td style="line-height: 1; text-align: center; width: 4.4646%; background-color: rgb(251, 160, 38);">
-                    <span style="font-size: 8px; font-family: Helvetica;"><strong>ITEM PO</strong></span><br></td>
-                <td style="width: 7.5361%; line-height: 1; text-align: center; background-color: rgb(251, 160, 38);">
-                    <article style="line-height: 1;"><span
-                            style="line-height: 1; font-family: Helvetica; font-size: 8px;"><strong>MATERIAL
-                                CODE</strong></span></article>
-                </td>
-                <td style="width: 23.2659%; line-height: 1; text-align: center; background-color: rgb(251, 160, 38);">
-                    <article style="line-height: 1;"><span
-                            style="line-height: 1; font-family: Helvetica; font-size: 8px;"><strong>DESCRIPTION</strong></span>
-                    </article>
-                </td>
-                <td style="width: 7.0636%; line-height: 1; text-align: center; background-color: rgb(251, 160, 38);">
-                    <article style="line-height: 1;"><span
-                            style="line-height: 1; font-family: Helvetica; font-size: 8px;"><strong>QTY
-                                RECEIVED</strong></span></article>
-                </td>
-                <td style="width: 4.3353%; line-height: 1; text-align: center; background-color: rgb(251, 160, 38);">
-                    <article style="line-height: 1;"><span
-                            style="line-height: 1; font-family: Helvetica; font-size: 8px;"><strong>UOI</strong></span>
-                    </article>
-                </td>
-                <td style="width: 14.4949%; line-height: 1; text-align: center; background-color: rgb(251, 160, 38);">
-                    <article style="line-height: 1;"><span
-                            style="line-height: 1; font-family: Helvetica; font-size: 8px;"><strong>LOKASI</strong></span>
-                    </article>
-                </td>
-                <td style="width: 9.0585%; line-height: 1; background-color: rgb(251, 160, 38);">
-                    <article style="line-height: 1; text-align: center;"><span
-                            style="line-height: 1; font-family: Helvetica; font-size: 8px;"><strong>TANGGAL TERIMA
-                                DO</strong></span><span style="line-height: 1;"><br></span></article>
-                </td>
-            </tr>
-            <tr>
-                <td style="width: 11.1849%; text-align: center;"><span
-                        style="font-family: Helvetica; font-size: 8px;">24/03/2025</span><br></td>
-                <td style="width: 8.5904%; line-height: 1; text-align: center;"><span
-                        style="font-family: Helvetica; font-size: 8px;">5300057030</span></td>
-                <td style="width: 10.9977%; line-height: 1; text-align: center;"><span
-                        style="font-family: Helvetica; font-size: 8px;">5006274631</span></td>
-                <td style="line-height: 1; text-align: center; width: 4.4646%;"><span
-                        style="font-size: 8px; font-family: Helvetica;">10</span></td>
-                <td style="width: 7.5361%; line-height: 1; text-align: center;"><span
-                        style="font-family: Helvetica; font-size: 8px;">5000874</span></td>
-                <td style="width: 23.2659%; line-height: 1; text-align: left;"><span
-                        style="font-family: Helvetica; font-size: 8px;">SACK;SINGLBRAND;NITREA;PRILL;50KG</span></td>
-                <td style="width: 7.0636%; line-height: 1; text-align: center;"><span
-                        style="font-family: Helvetica; font-size: 8px;">300,000</span></td>
-                <td style="width: 4.3353%; line-height: 1; text-align: center;"><span
-                        style="font-family: Helvetica; font-size: 8px;">SHT</span></td>
-                <td style="width: 14.4949%; line-height: 1; text-align: center;"><span
-                        style="font-size: 8px; font-family: Helvetica;">GUDANG CUSTOM</span><br></td>
-                <td style="width: 9.0585%; line-height: 1; text-align: center;"><span
-                        style="font-family: Helvetica; font-size: 8px;">20/03/2025</span></td>
-            </tr>
-        </tbody>
-    </table>
-    <p><br></p>
+    <br>
+    <br>
+
+    <p style="font-weight: bold;"><span style="font-size: 7pt">TANGGAL CETAK :
+            {{ $printedAt->format('d/m/Y H:i:s') }}</span></p>
+    <br>
+
+    @foreach ($groupedTransmittals as $tanggalKirim => $transmittals)
+        <div @if (!$loop->last) style="page-break-after: always;" @endif>
+            <table>
+                <tr>
+                    <td class="text-center" style="font-weight: bold">
+                        <p><span style="font-size: 6pt">TRANSMITTAL</span></p>
+                        <p><span style="font-size: 6pt">DOCUMENT PENGAJUAN QUALITY CONTROL</span></p>
+                    </td>
+                    <td class="text-right" style="font-weight: bold">
+                        <span style="font-size: 6pt">DIKIRIM OLEH:</span>
+                    </td>
+                    <td class="text-center" style="font-weight: bold">
+                        <span
+                            style="font-size: 6pt">{{ $transmittals->pluck('users.name')->unique()->join(', ') }}</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="text-center" style="font-weight: bold; font-size: 6pt;">RECEIVING --> ISTEK</td>
+                    <td class="text-right" style="font-weight: bold;">
+                        <span style="font-size: 6pt">DITERIMA OLEH:</span>
+                    </td>
+                    <td class="text-center" style="font-weight: bold;font-size: 6pt;"><span>-</span></td>
+                </tr>
+            </table>
+
+            <br>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 2%;">NO.</th>
+                        <th style="width: 8%;">TANGGAL KIRIM</th>
+                        <th style="width: 6%;">PO NO.</th>
+                        <th style="width: 6%;">DOCUMENT GR</th>
+                        <th style="width: 3%;">ITEM PO</th>
+                        <th style="width: 5%;">MATERIAL CODE</th>
+                        <th style="width: 25%;">DESCRIPTION</th>
+                        <th style="width: 4%;">QTY RECEIVED</th>
+                        <th style="width: 3%;">UOI</th>
+                        <th style="width: 15%;">LOKASI</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @php
+                        $previousPoNo = null;
+                        $no = 0;
+                    @endphp
+                    @foreach ($transmittals as $transmittal)
+                        @php
+                            $receipt = $transmittal->deliveryOrderReceipts;
+                            $details = $receipt?->deliveryOrderReceiptDetails ?? collect();
+                            $poNo = $receipt?->purchaseOrderTerbits?->purchase_order_no ?? '-';
+                            $location = $receipt?->locations?->name ?? '-';
+                            $receivedDate = optional($receipt?->received_date)->format('d/m/Y') ?? '-';
+                            $tanggalKirimFormat = \Carbon\Carbon::parse($transmittal->tanggal_kirim)->format('d/m/Y');
+                        @endphp
+
+                        @if ($poNo !== $previousPoNo)
+                            @php
+                                $no++;
+                                $previousPoNo = $poNo;
+                            @endphp
+                        @endif
+
+                        @foreach ($details as $detail)
+                            <tr>
+                                <td class="text-center">{{ $no }}</td>
+                                <td class="text-center">{{ $tanggalKirimFormat }}</td>
+                                <td class="text-center">{{ $poNo }}</td>
+                                <td class="text-center">{{ substr($transmittal->code_103, 0, 10) }}</td>
+                                <td class="text-center">{{ $detail->item_no }}</td>
+                                <td class="text-center">{{ $detail->material_code ?? '-' }}</td>
+                                <td class="text-left">{{ $detail->description }}</td>
+                                <td class="text-center">{{ number_format($detail->quantity) }}</td>
+                                <td class="text-center">{{ $detail->uoi }}</td>
+                                <td class="text-center">{{ $location }}</td>
+                            </tr>
+                        @endforeach
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endforeach
 </body>
 
 </html>

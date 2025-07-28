@@ -30,7 +30,21 @@ class TransmittalKembaliResource extends Resource
 {
     protected static ?string $model = TransmittalKembali::class;
     protected static ?string $cluster = TransmittalIstek::class;
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $label = 'Kembali';
+    protected static ?string $navigationGroup = 'Dokumen Kembali';
+    protected static ?string $navigationIcon = 'heroicon-o-arrow-down-on-square';
+    protected static ?string $activeNavigationIcon = 'heroicon-s-arrow-down-on-square';
+    protected static ?int $navigationSort = 2;
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::count();
+    }
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return static::getModel()::count() < 2 ? 'danger' : 'info';
+    }
+    protected static ?string $navigationBadgeTooltip = 'Total Transmittal Kembali';
+    protected static ?string $slug = 'kembali';
 
     public static function form(Form $form): Form
     {

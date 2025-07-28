@@ -16,9 +16,13 @@ class ListPurchaseOrderTerbits extends ListRecords
     {
         return [
             ImportAction::make()
+                ->label('Impor Purchase Order Terbit')
+                ->icon('heroicon-m-arrow-down-tray')
                 ->importer(PurchaseOrderTerbitImporter::class)
                 ->chunkSize(1000),
-            Actions\CreateAction::make(),
+            Actions\CreateAction::make()
+                ->label('Tambah Purchase Order Terbit')
+                ->icon('heroicon-m-plus-circle'),
         ];
     }
 }

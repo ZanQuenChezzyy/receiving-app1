@@ -73,4 +73,10 @@ class DeliveryOrderReceipt extends Model
     {
         return $this->hasMany(\App\Models\TransmittalKirim::class);
     }
+
+    public function transmittalKirimGrs(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\TransmittalKirimGrs::class);
+    }
+
 }

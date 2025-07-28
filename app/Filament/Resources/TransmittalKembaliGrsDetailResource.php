@@ -2,10 +2,10 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Clusters\TransmittalIstek;
-use App\Filament\Resources\TransmittalKembaliDetailResource\Pages;
-use App\Filament\Resources\TransmittalKembaliDetailResource\RelationManagers;
-use App\Models\TransmittalKembaliDetail;
+use App\Filament\Clusters\TransmittalGrs;
+use App\Filament\Resources\TransmittalKembaliGrsDetailResource\Pages;
+use App\Filament\Resources\TransmittalKembaliGrsDetailResource\RelationManagers;
+use App\Models\TransmittalKembaliGrsDetail;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -14,43 +14,29 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
-class TransmittalKembaliDetailResource extends Resource
+class TransmittalKembaliGrsDetailResource extends Resource
 {
-    protected static ?string $model = TransmittalKembaliDetail::class;
-    protected static ?string $cluster = TransmittalIstek::class;
-    protected static ?string $label = 'Detail Kembali';
-    protected static ?string $navigationGroup = 'Dokumen Kembali';
-    protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
-    protected static ?string $activeNavigationIcon = 'heroicon-s-clipboard-document-check';
-    protected static ?int $navigationSort = 3;
-    public static function getNavigationBadge(): ?string
-    {
-        return static::getModel()::count();
-    }
-    public static function getNavigationBadgeColor(): ?string
-    {
-        return static::getModel()::count() < 2 ? 'danger' : 'info';
-    }
-    protected static ?string $navigationBadgeTooltip = 'Total Dokumen Kembali';
-    protected static ?string $slug = 'dokumen-kembali';
+    protected static ?string $model = TransmittalKembaliGrsDetail::class;
+    protected static ?string $cluster = TransmittalGrs::class;
+    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                Forms\Components\Select::make('transmittal_kembali_id')
-                    ->relationship('transmittalKembali', 'id')
-                    ->required(),
-                Forms\Components\Select::make('transmittal_kirim_id')
-                    ->relationship('transmittalKirim', 'id')
-                    ->required(),
+                Forms\Components\TextInput::make('transmittal_kembali_id')
+                    ->required()
+                    ->numeric(),
+                Forms\Components\TextInput::make('transmittal_kirim_id')
+                    ->required()
+                    ->numeric(),
                 Forms\Components\TextInput::make('do_receipt_detail_id')
                     ->required()
                     ->numeric(),
                 Forms\Components\TextInput::make('code')
                     ->required()
                     ->maxLength(50),
-                Forms\Components\TextInput::make('code_103')
+                Forms\Components\TextInput::make('code_105')
                     ->required()
                     ->maxLength(15),
                 Forms\Components\TextInput::make('total_item')
@@ -62,14 +48,11 @@ class TransmittalKembaliDetailResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(function (Builder $query) {
-                return $query->latest(); // urutkan berdasarkan created_at DESC
-            })
             ->columns([
-                Tables\Columns\TextColumn::make('transmittalKembali.id')
+                Tables\Columns\TextColumn::make('transmittal_kembali_id')
                     ->numeric()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('transmittalKirim.id')
+                Tables\Columns\TextColumn::make('transmittal_kirim_id')
                     ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('do_receipt_detail_id')
@@ -77,7 +60,7 @@ class TransmittalKembaliDetailResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('code')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('code_103')
+                Tables\Columns\TextColumn::make('code_105')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('total_item')
                     ->numeric()
@@ -115,10 +98,10 @@ class TransmittalKembaliDetailResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListTransmittalKembaliDetails::route('/'),
-            'create' => Pages\CreateTransmittalKembaliDetail::route('/create'),
-            'view' => Pages\ViewTransmittalKembaliDetail::route('/{record}'),
-            'edit' => Pages\EditTransmittalKembaliDetail::route('/{record}/edit'),
+            'index' => Pages\ListTransmittalKembaliGrsDetails::route('/'),
+            'create' => Pages\CreateTransmittalKembaliGrsDetail::route('/create'),
+            'view' => Pages\ViewTransmittalKembaliGrsDetail::route('/{record}'),
+            'edit' => Pages\EditTransmittalKembaliGrsDetail::route('/{record}/edit'),
         ];
     }
 }

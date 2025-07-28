@@ -30,7 +30,21 @@ class TransmittalKirimResource extends Resource
 {
     protected static ?string $model = TransmittalKirim::class;
     protected static ?string $cluster = TransmittalIstek::class;
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $label = 'Kirim';
+    protected static ?string $navigationGroup = 'Dokumen Kirim';
+    protected static ?string $navigationIcon = 'heroicon-o-arrow-up-on-square';
+    protected static ?string $activeNavigationIcon = 'heroicon-s-arrow-up-on-square';
+    protected static ?int $navigationSort = 1;
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::count();
+    }
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return static::getModel()::count() < 2 ? 'danger' : 'info';
+    }
+    protected static ?string $navigationBadgeTooltip = 'Total Transmittal Kirim';
+    protected static ?string $slug = 'kirim';
 
     public static function form(Form $form): Form
     {
@@ -49,6 +63,7 @@ class TransmittalKirimResource extends Resource
                                     ->live()
                                     ->prefixIcon('heroicon-o-calendar')
                                     ->placeholder('Pilih Tanggal Kirim')
+                                    ->default(now())
                                     ->required(),
                                 TextInput::make('code')
                                     ->label('Kode Dokumen (Scan QR)')
@@ -69,6 +84,7 @@ class TransmittalKirimResource extends Resource
                                                 return [
                                                     'item_no' => $item->item_no,
                                                     'description' => $item->description,
+                                                    'material_code' => $item->material_code,
                                                     'quantity' => $item->quantity,
                                                     'uoi' => $item->uoi,
                                                     'location' => $item->is_different_location
@@ -105,12 +121,13 @@ class TransmittalKirimResource extends Resource
                             ->label('')
                             ->schema([
                                 TextInput::make('item_no')->label('Item No')->disabled(),
+                                TextInput::make('material_code')->label('Material Code')->disabled(),
                                 TextInput::make('description')->label('Deskripsi')->disabled(),
                                 TextInput::make('quantity')->label('Qty')->disabled(),
                                 TextInput::make('uoi')->label('Satuan')->disabled(),
                                 TextInput::make('location')->label('Lokasi')->disabled(),
                             ])
-                            ->columns(5)
+                            ->columns(6)
                             ->default([])
                             ->columnSpanFull()
                             ->addable(false)
@@ -123,7 +140,7 @@ class TransmittalKirimResource extends Resource
                                 }
 
                                 $receipt = $record->deliveryOrderReceipts; // alias biar lebih singkat
-
+                    
                                 $items = $receipt->deliveryOrderReceiptDetails->map(function ($item) use ($receipt) {
                                     return [
                                         'item_no' => $item->item_no,

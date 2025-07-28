@@ -72,4 +72,16 @@ class User extends Authenticatable implements HasAvatar
         return $this->hasMany(\App\Models\TransmittalKembali::class);
     }
 
+
+    public function transmittalKirimGrs(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\TransmittalKirimGrs::class);
+    }
+
+
+    public function transmittalKembaliGrs(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\TransmittalKembaliGrs::class);
+    }
+
 }

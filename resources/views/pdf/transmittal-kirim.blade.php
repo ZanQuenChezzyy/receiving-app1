@@ -120,6 +120,7 @@
             word-break: break-word;
         }
     </style>
+    <title>Transmittal Kirim - {{ $printedAt->format('d/m/Y H:i:s') }}</title>
 </head>
 
 <body>

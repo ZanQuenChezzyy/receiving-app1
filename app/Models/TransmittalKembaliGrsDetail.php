@@ -10,8 +10,8 @@ class TransmittalKembaliGrsDetail extends Model
     use HasFactory;
 
     protected $fillable = [
-        'transmittal_kembali_id',
-        'transmittal_kirim_id',
+        'transmittal_kembali_grs_id',
+        'transmittal_kirim_grs_id',
         'do_receipt_detail_id',
         'code',
         'code_105',

@@ -244,9 +244,9 @@ class DeliveryOrderReceiptDetailResource extends Resource
                 //
             ], position: ActionsPosition::AfterCells)
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                // Tables\Actions\BulkActionGroup::make([
+                //     Tables\Actions\DeleteBulkAction::make(),
+                // ]),
             ]);
     }
 

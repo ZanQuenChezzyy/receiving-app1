@@ -18,7 +18,24 @@ class TransmittalKembaliGrsDetailResource extends Resource
 {
     protected static ?string $model = TransmittalKembaliGrsDetail::class;
     protected static ?string $cluster = TransmittalGrs::class;
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $label = 'Detail Dokumen';
+    protected static ?string $navigationGroup = 'Dokumen Transmittal';
+    protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
+    protected static ?string $activeNavigationIcon = 'heroicon-s-clipboard-document-check';
+    protected static ?int $navigationSort = 3;
+
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::count();
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return static::getModel()::count() < 2 ? 'danger' : 'info';
+    }
+
+    protected static ?string $navigationBadgeTooltip = 'Total Detail Dokumen GRS';
+    protected static ?string $slug = 'detail-dokumen-grs';
 
     public static function form(Form $form): Form
     {
@@ -49,10 +66,10 @@ class TransmittalKembaliGrsDetailResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('transmittal_kembali_id')
+                Tables\Columns\TextColumn::make('transmittal_kembali_grs_id')
                     ->numeric()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('transmittal_kirim_id')
+                Tables\Columns\TextColumn::make('transmittal_kirim_grs_id')
                     ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('do_receipt_detail_id')

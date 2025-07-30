@@ -26,11 +26,11 @@
 
         table {
             font-size: 10px;
-            width: 100%;
-            border-collapse: collapse;
+            width: auto;
             font-family: Helvetica;
             font-weight: bold;
             color: black;
+            border-collapse: collapse;
         }
 
         td {
@@ -48,23 +48,23 @@
             $items = $record['items'];
             $poNo = optional($do->purchaseOrderTerbits)->purchase_order_no ?? '-';
             $tanggal = \Carbon\Carbon::parse($do->received_date)->format('d/m/Y');
-            $receivedBy = \Illuminate\Support\Str::limit(optional($do->receivedBy)->name ?? '-', 13);
+            $receivedBy = \Illuminate\Support\Str::limit(optional($do->receivedBy)->name ?? '-', 7);
         @endphp
 
         @foreach ($do->deliveryOrderReceiptDetails as $index => $detail)
             @php
                 $qrItem = $items[$index]['qr'] ?? '';
-                $description = \Illuminate\Support\Str::limit($detail->description ?? '-', 27);
+                $description = \Illuminate\Support\Str::limit($detail->description ?? '-', 20);
                 $locationRaw = $detail->is_different_location
                     ? optional($detail->locations)->name ?? 'Lokasi Beda (Tidak diketahui)'
                     : optional($do->locations)->name ?? 'Lokasi Utama (Tidak diketahui)';
-                $location = \Illuminate\Support\Str::limit($locationRaw, 27);
+                $location = \Illuminate\Support\Str::limit($locationRaw, 24);
             @endphp
 
             <div class="page">
                 <table>
                     <tr>
-                        <td colspan="3" style="text-align: left; text-decoration: underline;">
+                        <td colspan="3" style="text-align: left; text-decoration: underline; padding-bottom: 2px;">
                             LABEL MATERIAL - DO RECEIPT
                         </td>
                         <td style="text-align: right;">
@@ -102,34 +102,36 @@
                     <tr>
                         <td>Qty Diterima</td>
                         <td style="text-align: center;">:</td>
-                        <td>{{ $detail->quantity . ' ' . $detail->uoi }}</td>
+                        <td>{{ $detail ? $detail->quantity . ' ' . $detail->uoi : '-' }}</td>
                     </tr>
                     <tr>
-                        <td>Diterima Oleh</td>
+                        <td colspan="1" style="padding-top: 2px;">Diterima Oleh</td>
                         <td style="text-align: center;">:</td>
                         <td>{{ $receivedBy }}</td>
                     </tr>
                     <tr>
-                        <td>Deskripsi</td>
+                        <td colspan="1" style="padding-top: 2px;">Deskripsi</td>
                         <td style="text-align: center;">:</td>
-                        <td colspan="2">{{ $description }}</td>
+                        <td colspan="5">{{ $description }}</td>
                     </tr>
                     <tr>
-                        <td>Lokasi</td>
+                        <td colspan="1" style="padding-top: 2px;">Lokasi</td>
                         <td style="text-align: center;">:</td>
-                        <td colspan="2">{{ $location }}</td>
+                        <td colspan="5">{{ $location }}</td>
+                        <td></td>
                     </tr>
                 </table>
             </div>
         @endforeach
 
+        {{-- Halaman 1: QR utama DO --}}
         <div class="page">
-            <table style="border-collapse: collapse; border: 1px solid black; width: 100%;">
+            <table style="border-collapse: collapse; border: 1px solid black; width: 100%; max-width: 100%;">
                 <tr>
                     <td colspan="4" style="padding-bottom: 4px;">
                         <div
-                            style="border: 1px solid black; padding: 4px 8px; font-size: 10px; text-align: center; background-color: black;">
-                            <strong style="color: white">WAJIB DITEMPEL DI MAP DOKUMEN!</strong>
+                            style="border: 1px solid rgb(0, 0, 0); padding: 4px 8px; font-size: 10px; text-align: center; background-color: black;">
+                            <strong style="color: rgb(255, 255, 255)">WAJIB DITEMPEL DI MAP DOKUMEN!</strong>
                         </div>
                     </td>
                 </tr>

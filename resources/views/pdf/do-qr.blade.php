@@ -44,9 +44,9 @@
         @php
             $itemNo = explode(' ', $item['label'])[1];
             $detail = $do->deliveryOrderReceiptDetails->firstWhere('item_no', $itemNo);
-            $description = isset($detail->description) ? \Illuminate\Support\Str::limit($detail->description, 24) : '-';
+            $description = isset($detail->description) ? \Illuminate\Support\Str::limit($detail->description, 20) : '-';
             $poNo = optional($do->purchaseOrderTerbits)->purchase_order_no ?? '-';
-            $receivedBy = \Illuminate\Support\Str::limit(optional($do->receivedBy)->name ?? '-', 13);
+            $receivedBy = \Illuminate\Support\Str::limit(optional($do->receivedBy)->name ?? '-', 7);
             $tanggal = \Carbon\Carbon::parse($do->received_date)->format('d/m/Y');
             $locationRaw = $detail?->is_different_location
                 ? optional($detail->locations)->name ?? 'Lokasi Beda (Tidak diketahui)'
@@ -159,7 +159,7 @@
             <tr>
                 <td>Diterima Oleh</td>
                 <td style="text-align: center;">:</td>
-                <td>{{ $do->receivedBy->name ?? '-' }}</td>
+                <td>{{ $receivedBy }}</td>
             </tr>
             <tr>
                 <td colspan="4" style="text-align: right; padding-top: 6px;">

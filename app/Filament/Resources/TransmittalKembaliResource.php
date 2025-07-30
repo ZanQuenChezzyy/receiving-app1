@@ -7,6 +7,7 @@ use App\Filament\Resources\TransmittalKembaliResource\Pages;
 use App\Filament\Resources\TransmittalKembaliResource\RelationManagers;
 use App\Models\TransmittalKembali;
 use App\Models\TransmittalKirim;
+use Closure;
 use Filament\Forms;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Grid;
@@ -25,13 +26,14 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
 use Filament\Forms\Components\Actions\Action;
+use Filament\Tables\Actions\ActionGroup;
 
 class TransmittalKembaliResource extends Resource
 {
     protected static ?string $model = TransmittalKembali::class;
     protected static ?string $cluster = TransmittalIstek::class;
     protected static ?string $label = 'Kembali';
-    protected static ?string $navigationGroup = 'Dokumen Kembali';
+    protected static ?string $navigationGroup = 'Dokumen Kirim & Kembali';
     protected static ?string $navigationIcon = 'heroicon-o-arrow-down-on-square';
     protected static ?string $activeNavigationIcon = 'heroicon-s-arrow-down-on-square';
     protected static ?int $navigationSort = 2;
@@ -44,7 +46,7 @@ class TransmittalKembaliResource extends Resource
         return static::getModel()::count() < 2 ? 'danger' : 'info';
     }
     protected static ?string $navigationBadgeTooltip = 'Total Transmittal Kembali';
-    protected static ?string $slug = 'kembali';
+    protected static ?string $slug = 'kembali-istek';
 
     public static function form(Form $form): Form
     {
@@ -59,6 +61,7 @@ class TransmittalKembaliResource extends Resource
                                 ->label('Tanggal Kembali')
                                 ->placeholder('Pilih Tanggal Kembali')
                                 ->native(false)
+                                ->default(now())
                                 ->required(),
 
                             Select::make('created_by')
@@ -74,7 +77,7 @@ class TransmittalKembaliResource extends Resource
 
                 Section::make('Daftar Transmittal Kembali')
                     ->description('Scan QR Code Transmittal untuk mengisi data pengembalian secara otomatis.')
-                    ->icon('heroicon-o-qr-code')
+                    ->icon('heroicon-o-list-bullet')
                     ->schema([
                         Repeater::make('transmittalKembaliDetails')
                             ->relationship()
@@ -84,8 +87,10 @@ class TransmittalKembaliResource extends Resource
                                     TextInput::make('code')
                                         ->label('Scan QR Code')
                                         ->placeholder('Scan QR Dokumen')
-                                        ->required()
+                                        ->autofocus()
                                         ->live()
+                                        ->required()
+                                        ->unique(ignoreRecord: true)
                                         ->afterStateUpdated(function ($state, callable $set, callable $get) {
                                             $transmittal = TransmittalKirim::where('code', $state)->first();
 
@@ -103,7 +108,7 @@ class TransmittalKembaliResource extends Resource
                                                 return;
                                             }
 
-                                            // Pastikan tanggal_kirim berupa Carbon
+                                            // Set field dalam item
                                             $tanggal = $transmittal->tanggal_kirim;
                                             if (!($tanggal instanceof \Carbon\Carbon)) {
                                                 $tanggal = \Illuminate\Support\Carbon::parse($tanggal);
@@ -116,8 +121,21 @@ class TransmittalKembaliResource extends Resource
 
                                             $total = $transmittal->deliveryOrderReceipts?->deliveryOrderReceiptDetails->count() ?? 0;
                                             $set('total_item', $total);
-                                        })
-                                        ->unique(),
+
+                                            $details = $get('../../transmittalKembaliDetails');
+                                            if (count($details) >= 1) {
+                                                $details[] = [
+                                                    'code' => '',
+                                                    'code_103' => '',
+                                                    'tanggal_kirim' => '',
+                                                    'total_item' => '',
+                                                    'transmittal_kirim_id' => null,
+                                                    'do_receipt_detail_id' => null,
+                                                ];
+
+                                                $set('../../transmittalKembaliDetails', $details);
+                                            }
+                                        }),
 
                                     TextInput::make('code_103')
                                         ->label('Code 103')
@@ -150,12 +168,12 @@ class TransmittalKembaliResource extends Resource
                             ->columnSpanFull()
                             ->addAction(
                                 fn(Action $action) => $action
-                                    ->label('Tambah Daftar 10')
+                                    ->label('Tambah Daftar 5')
                                     ->icon('heroicon-o-plus')
                                     ->action(function (callable $get, callable $set) {
                                         $state = $get('transmittalKembaliDetails') ?? [];
 
-                                        for ($i = 0; $i < 10; $i++) {
+                                        for ($i = 0; $i < 5; $i++) {
                                             $state[] = [
                                                 'code' => '',
                                                 'code_103' => '',
@@ -170,7 +188,7 @@ class TransmittalKembaliResource extends Resource
                                     })
                             )
                             ->addActionAlignment(Alignment::End)
-                            ->defaultItems(10),
+                            ->defaultItems(2),
                     ]),
             ]);
     }
@@ -183,26 +201,52 @@ class TransmittalKembaliResource extends Resource
             })
             ->columns([
                 Tables\Columns\TextColumn::make('tanggal_kembali')
-                    ->date()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('created_by')
-                    ->numeric()
-                    ->sortable(),
+                    ->label('Tanggal Kembali')
+                    ->date('l, d F Y')
+                    ->sortable()
+                    ->color('gray'),
+
+                Tables\Columns\TextColumn::make('transmittalKembaliDetails.code')
+                    ->label('Daftar Dokumen')
+                    ->listWithLineBreaks()
+                    ->bulleted()
+                    ->limitList(1)
+                    ->expandableLimitedList()
+                    ->icon('heroicon-s-document-text')
+                    ->color('primary')
+                    ->disabledClick(),
+
+                Tables\Columns\TextColumn::make('createdBy.name')
+                    ->label('Dibuat Oleh')
+                    ->badge()
+                    ->color('warning')
+                    ->icon('heroicon-s-user'),
+
                 Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
+                    ->label('Dibuat Pada')
+                    ->dateTime('d M Y H:i')
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->icon('heroicon-o-clock'),
+
                 Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
+                    ->label('Terakhir Diperbarui')
+                    ->dateTime('d M Y H:i')
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->icon('heroicon-o-arrow-path'),
             ])
             ->filters([
                 //
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
+                ActionGroup::make([
+                    Tables\Actions\ViewAction::make(),
+                    Tables\Actions\EditAction::make(),
+                ])
+                    ->icon('heroicon-o-ellipsis-horizontal-circle')
+                    ->color('info')
+                    ->tooltip('Aksi')
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

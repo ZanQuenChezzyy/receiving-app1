@@ -9,4 +9,8 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateDeliveryOrderReceipt extends CreateRecord
 {
     protected static string $resource = DeliveryOrderReceiptResource::class;
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 }

@@ -31,7 +31,7 @@ class TransmittalKirimResource extends Resource
     protected static ?string $model = TransmittalKirim::class;
     protected static ?string $cluster = TransmittalIstek::class;
     protected static ?string $label = 'Kirim';
-    protected static ?string $navigationGroup = 'Dokumen Kirim';
+    protected static ?string $navigationGroup = 'Dokumen Kirim & Kembali';
     protected static ?string $navigationIcon = 'heroicon-o-arrow-up-on-square';
     protected static ?string $activeNavigationIcon = 'heroicon-s-arrow-up-on-square';
     protected static ?int $navigationSort = 1;
@@ -44,7 +44,7 @@ class TransmittalKirimResource extends Resource
         return static::getModel()::count() < 2 ? 'danger' : 'info';
     }
     protected static ?string $navigationBadgeTooltip = 'Total Transmittal Kirim';
-    protected static ?string $slug = 'kirim';
+    protected static ?string $slug = 'kirim-istek';
 
     public static function form(Form $form): Form
     {
@@ -84,7 +84,7 @@ class TransmittalKirimResource extends Resource
                                                 return [
                                                     'item_no' => $item->item_no,
                                                     'description' => $item->description,
-                                                    'material_code' => $item->material_code,
+                                                    'material_code' => $item->material_code ?? 'None',
                                                     'quantity' => $item->quantity,
                                                     'uoi' => $item->uoi,
                                                     'location' => $item->is_different_location
@@ -107,7 +107,6 @@ class TransmittalKirimResource extends Resource
                                     ->autofocus()
                                     ->required(),
 
-
                                 Hidden::make('delivery_order_receipt_id')->required(),
                                 Hidden::make('created_by')->default(Auth::user()->id),
                             ]),
@@ -122,9 +121,9 @@ class TransmittalKirimResource extends Resource
                             ->schema([
                                 TextInput::make('item_no')->label('Item No')->disabled(),
                                 TextInput::make('material_code')->label('Material Code')->disabled(),
-                                TextInput::make('description')->label('Deskripsi')->disabled(),
-                                TextInput::make('quantity')->label('Qty')->disabled(),
-                                TextInput::make('uoi')->label('Satuan')->disabled(),
+                                TextInput::make('description')->label('Description')->disabled(),
+                                TextInput::make('quantity')->label('Quantity')->disabled(),
+                                TextInput::make('uoi')->label('UOI')->disabled(),
                                 TextInput::make('location')->label('Lokasi')->disabled(),
                             ])
                             ->columns(6)
@@ -144,6 +143,7 @@ class TransmittalKirimResource extends Resource
                                 $items = $receipt->deliveryOrderReceiptDetails->map(function ($item) use ($receipt) {
                                     return [
                                         'item_no' => $item->item_no,
+                                        'material_code' => $item->material_code ?? 'None',
                                         'description' => $item->description,
                                         'quantity' => $item->quantity,
                                         'uoi' => $item->uoi,

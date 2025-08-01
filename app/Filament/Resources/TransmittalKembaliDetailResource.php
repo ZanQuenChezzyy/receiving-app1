@@ -14,6 +14,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Http;
 
 class TransmittalKembaliDetailResource extends Resource
 {
@@ -100,17 +101,36 @@ class TransmittalKembaliDetailResource extends Resource
                     ->color('warning')
                     ->sortable()
                     ->getStateUsing(function ($record) {
-                        $tanggalKirim = optional($record->transmittalKirim)->tanggal_kirim;
-                        $tanggalKembali = optional($record->transmittalKembali)->tanggal_kembali;
+                        $start = optional($record->transmittalKirim)->tanggal_kirim;
+                        $end = optional($record->transmittalKembali)->tanggal_kembali;
 
-                        if ($tanggalKirim && $tanggalKembali) {
-                            $start = Carbon::parse($tanggalKirim);
-                            $end = Carbon::parse($tanggalKembali);
+                        if (!$start || !$end)
+                            return '-';
 
-                            return $start->diffInDays($end) . ' hari';
+                        $start = Carbon::parse($start);
+                        $end = Carbon::parse($end);
+
+                        // Ambil daftar hari libur dari API
+                        $response = Http::withOptions([
+                            'verify' => false, // ini menonaktifkan verifikasi SSL
+                        ])->get('https://api-harilibur.vercel.app/api');
+                        $holidays = collect($response->json())->pluck('holiday_date')->toArray();
+
+                        $networkDays = 0;
+                        $current = $start->copy();
+
+                        while ($current->lte($end)) {
+                            $isWeekend = $current->isWeekend(); // Sabtu/Minggu
+                            $isHoliday = in_array($current->format('Y-m-d'), $holidays);
+
+                            if (!$isWeekend && !$isHoliday) {
+                                $networkDays++;
+                            }
+
+                            $current->addDay();
                         }
 
-                        return '-';
+                        return "{$networkDays} hari";
                     }),
 
                 Tables\Columns\TextColumn::make('created_at')
@@ -151,9 +171,6 @@ class TransmittalKembaliDetailResource extends Resource
     {
         return [
             'index' => Pages\ListTransmittalKembaliDetails::route('/'),
-            'create' => Pages\CreateTransmittalKembaliDetail::route('/create'),
-            'view' => Pages\ViewTransmittalKembaliDetail::route('/{record}'),
-            'edit' => Pages\EditTransmittalKembaliDetail::route('/{record}/edit'),
         ];
     }
 }

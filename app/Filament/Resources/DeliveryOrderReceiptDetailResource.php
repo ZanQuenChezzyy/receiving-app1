@@ -124,11 +124,13 @@ class DeliveryOrderReceiptDetailResource extends Resource
                     ->placeholder('None')
                     ->suffix(fn($record) => ' ' . ($record->uoi ?? ''))
                     ->alignLeft()
+                    ->badge()
                     ->width('80px') // atur lebar biar kompak
                     ->color('primary'),
 
                 TextColumn::make('qty_po')
                     ->label('Qty PO')
+                    ->badge()
                     ->getStateUsing(function ($record) {
                         $purchaseOrderNo = $record->deliveryOrderReceipts?->purchaseOrderTerbits?->purchase_order_no;
 

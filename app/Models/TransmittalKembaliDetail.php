@@ -22,17 +22,12 @@ class TransmittalKembaliDetail extends Model
     {
         return $this->belongsTo(\App\Models\TransmittalKembali::class, 'transmittal_kembali_id', 'id');
     }
-
-
     public function transmittalKirim(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(\App\Models\TransmittalKirim::class, 'transmittal_kirim_id', 'id');
     }
-
-
     public function deliveryOrderReceiptDetail(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(\App\Models\DeliveryOrderReceiptDetail::class, 'do_receipt_detail_id', 'id');
     }
-
 }

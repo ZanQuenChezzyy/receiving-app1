@@ -18,11 +18,8 @@ class TransmittalKembali extends Model
     {
         return $this->belongsTo(\App\Models\User::class, 'created_by', 'id');
     }
-
-
     public function transmittalKembaliDetails(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(\App\Models\TransmittalKembaliDetail::class);
     }
-
 }

@@ -10,17 +10,14 @@ return new class extends Migration {
      */
     public function up(): void
     {
-        Schema::create('delivery_order_receipt_details', function (Blueprint $table) {
+        Schema::create('goods_receipt_slip_details', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('delivery_order_receipt_id')->constrained('delivery_order_receipts')->cascadeOnDelete();
-            $table->unsignedTinyInteger('item_no');
+            $table->foreignId('goods_receipt_slip_id')->constrained('goods_receipt_slips')->cascadeOnDelete();
+            $table->unsignedMediumInteger('item_no');
             $table->string('quantity', 10);
             $table->string('material_code', 20)->nullable();
             $table->text('description');
             $table->string('uoi', 5)->nullable();
-            $table->boolean('is_different_location')->default(false);
-            $table->boolean('is_qty_tolerance')->default(false);
-            $table->foreignId('location_id')->nullable()->constrained('locations')->nullOnDelete();
             $table->timestamps();
         });
     }
@@ -30,6 +27,6 @@ return new class extends Migration {
      */
     public function down(): void
     {
-        Schema::dropIfExists('delivery_order_receipt_details');
+        Schema::dropIfExists('goods_receipt_slip_details');
     }
 };

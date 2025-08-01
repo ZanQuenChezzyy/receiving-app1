@@ -47,36 +47,32 @@ class DeliveryOrderReceipt extends Model
     {
         return $this->belongsTo(\App\Models\User::class, 'received_by', 'id');
     }
-
     public function createdBy(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(\App\Models\User::class, 'created_by', 'id');
     }
-
     public function locations(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(\App\Models\Location::class, 'location_id', 'id');
     }
-
     public function purchaseOrderTerbits(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(\App\Models\PurchaseOrderTerbit::class, 'purchase_order_terbit_id', 'id');
     }
-
-
     public function deliveryOrderReceiptDetails(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(\App\Models\DeliveryOrderReceiptDetail::class);
     }
-
     public function transmittalKirims(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(\App\Models\TransmittalKirim::class);
     }
-
-    public function transmittalKirimGrs(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function goodsReceiptSlips(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(\App\Models\TransmittalKirimGrs::class);
+        return $this->hasMany(\App\Models\GoodsReceiptSlip::class);
     }
-
+    public function returnDeliveryToVendors(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\ReturnDeliveryToVendor::class);
+    }
 }

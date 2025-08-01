@@ -79,6 +79,11 @@ class DeliveryOrderReceiptResource extends Resource
                                         )
                                         ->searchable()
                                         ->live()
+                                        ->afterStateUpdated(function ($state, callable $set) {
+                                            $set('deliveryOrderReceiptDetails', [
+                                                ['item_no' => null, 'is_different_location' => false, 'is_qty_tolerance' => false]
+                                            ]);
+                                        })
                                         ->required(),
 
                                     Forms\Components\TextInput::make('nomor_do')

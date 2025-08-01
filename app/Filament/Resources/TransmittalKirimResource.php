@@ -197,6 +197,7 @@ class TransmittalKirimResource extends Resource
                 TextColumn::make('users.name')
                     ->label('Dibuat Oleh')
                     ->color('warning')
+                    ->badge()
                     ->icon('heroicon-s-user'),
 
                 TextColumn::make('created_at')

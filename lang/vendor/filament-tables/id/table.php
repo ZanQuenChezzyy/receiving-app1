@@ -51,11 +51,11 @@ return [
 
     'summary' => [
 
-        'heading' => 'Rangkuman',
+        'heading' => '',
 
         'subheadings' => [
             'all' => 'Semua :label',
-            'group' => 'Rangkuman :group',
+            'group' => ':group',
             'page' => 'Halaman ini',
         ],
 

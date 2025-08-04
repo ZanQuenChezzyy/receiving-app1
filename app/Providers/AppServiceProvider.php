@@ -4,11 +4,20 @@ namespace App\Providers;
 
 use App\Filament\Pages\Auth\EditProfile;
 use App\Filament\Pages\Dashboard;
+use App\Filament\Resources\DeliveryOrderReceiptDetailResource;
+use App\Filament\Resources\DeliveryOrderReceiptResource;
+use App\Filament\Resources\GoodsReceiptSlipDetailResource;
+use App\Filament\Resources\GoodsReceiptSlipResource;
+use App\Filament\Resources\LocationResource;
 use App\Filament\Resources\PermissionResource;
+use App\Filament\Resources\PurchaseOrderTerbitResource;
+use App\Filament\Resources\ReturnDeliveryToVendorDetailResource;
+use App\Filament\Resources\ReturnDeliveryToVendorResource;
 use App\Filament\Resources\RoleResource;
+use App\Filament\Resources\TransmittalKembaliDetailResource;
+use App\Filament\Resources\TransmittalKembaliResource;
+use App\Filament\Resources\TransmittalKirimResource;
 use App\Filament\Resources\UserResource;
-use App\Models\Permission;
-use App\Observers\PermissionObserver;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Support\Facades\Blade;
@@ -53,6 +62,17 @@ class AppServiceProvider extends ServiceProvider
                 UserResource::class,
                 RoleResource::class,
                 PermissionResource::class,
+                DeliveryOrderReceiptDetailResource::class,
+                DeliveryOrderReceiptResource::class,
+                GoodsReceiptSlipDetailResource::class,
+                GoodsReceiptSlipResource::class,
+                LocationResource::class,
+                PurchaseOrderTerbitResource::class,
+                ReturnDeliveryToVendorDetailResource::class,
+                ReturnDeliveryToVendorResource::class,
+                TransmittalKembaliDetailResource::class,
+                TransmittalKembaliResource::class,
+                TransmittalKirimResource::class,
             ]
         );
     }

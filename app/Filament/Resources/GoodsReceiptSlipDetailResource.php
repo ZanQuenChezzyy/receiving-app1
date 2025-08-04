@@ -10,6 +10,7 @@ use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
@@ -20,8 +21,20 @@ class GoodsReceiptSlipDetailResource extends Resource
     protected static ?string $cluster = GrsRdtv::class;
     protected static ?string $label = 'Detail Dokumen GRS';
     protected static ?string $navigationGroup = 'Goods Receipt Slip (GRS)';
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
+    protected static ?string $activeNavigationIcon = 'heroicon-s-clipboard-document-list';
     protected static ?int $navigationSort = 2;
+    protected static ?string $slug = 'detail-dokumen-grs';
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::count();
+    }
+    public static function getNavigationBadgeColor(): ?string
+    {
+        $count = static::getModel()::count();
+        return $count < 1 ? 'danger' : 'info';
+    }
+    protected static ?string $navigationBadgeTooltip = 'Total Detail GRS';
 
     public static function form(Form $form): Form
     {
@@ -52,6 +65,15 @@ class GoodsReceiptSlipDetailResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->groups([
+                Group::make('goodsReceiptSlip.deliveryOrderReceipts.purchaseOrderTerbits.purchase_order_no')
+                    ->label('Nomor PO')
+                    ->titlePrefixedWithLabel()
+                    ->collapsible(),
+            ])
+            ->defaultGroup(
+                Group::make('goodsReceiptSlip.deliveryOrderReceipts.purchaseOrderTerbits.purchase_order_no')
+            )
             ->columns([
                 Tables\Columns\TextColumn::make('goodsReceiptSlip.deliveryOrderReceipts.purchaseOrderTerbits.purchase_order_no')
                     ->label('Nomor PO & Kode 105')

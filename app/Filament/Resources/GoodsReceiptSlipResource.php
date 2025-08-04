@@ -22,6 +22,8 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Actions\ActionGroup;
 use Filament\Tables\Actions\BulkActionGroup;
+use Filament\Tables\Columns\Summarizers\Count;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
@@ -35,8 +37,23 @@ class GoodsReceiptSlipResource extends Resource
     protected static ?string $cluster = GrsRdtv::class;
     protected static ?string $label = 'Dokumen GRS';
     protected static ?string $navigationGroup = 'Goods Receipt Slip (GRS)';
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-document-check';
+    protected static ?string $activeNavigationIcon = 'heroicon-s-document-check';
     protected static ?int $navigationSort = 1;
+    protected static ?string $slug = 'dokumen-grs';
+
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::count();
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        $count = static::getModel()::count();
+        return $count < 1 ? 'danger' : 'success';
+    }
+
+    protected static ?string $navigationBadgeTooltip = 'Total Dokumen GRS';
 
     public static function form(Form $form): Form
     {
@@ -65,6 +82,7 @@ class GoodsReceiptSlipResource extends Resource
                                     ->autofocus()
                                     ->live()
                                     ->required()
+                                    ->unique(ignoreRecord: true)
                                     ->afterStateUpdated(function ($state, callable $set) {
                                         $deliveryOrder = DeliveryOrderReceipt::with('deliveryOrderReceiptDetails')
                                             ->where('do_code', $state)
@@ -142,7 +160,11 @@ class GoodsReceiptSlipResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn(Builder $query) => $query->latest())
+            ->modifyQueryUsing(function (Builder $query) {
+                $query->withCount('goodsReceiptSlipDetails')
+                    ->withSum('goodsReceiptSlipDetails', 'quantity')
+                    ->latest(); // ini tetap untuk urutkan DESC
+            })
             ->groups([
                 Group::make('tanggal_terbit')
                     ->label('Tanggal Terbit')
@@ -165,15 +187,40 @@ class GoodsReceiptSlipResource extends Resource
                     ->icon('heroicon-s-document-text')
                     ->color('primary')
                     ->searchable()
-                    ->description(fn($record) => 'Kode 105: ' . ($record->code_105 ?? '-'))
-                    ->tooltip('Menampilkan Nomor PO dan Kode 105 sebagai referensi slip'),
+                    ->description(fn($record) => 'Kode 105: ' . ($record->code_105 ?? '-')),
+
+                TextColumn::make('goods_receipt_slip_details_count')
+                    ->label('Total Item')
+                    ->badge()
+                    ->suffix(' item')
+                    ->color('success')
+                    ->icon('heroicon-s-cube')
+                    ->sortable()
+                    ->summarize(
+                        Sum::make()
+                            ->label('Grand Total')
+                            ->suffix(' item')
+                    ),
+
+                TextColumn::make('goods_receipt_slip_details_sum_quantity')
+                    ->label('Total Qty')
+                    ->badge()
+                    ->suffix(' Qty')
+                    ->color('success')
+                    ->icon('heroicon-s-cube')
+                    ->sortable()
+                    ->summarize(
+                        Sum::make()
+                            ->label('Grand Total')
+                            ->suffix(' Qty')
+                    ),
 
                 TextColumn::make('createdBy.name')
-                    ->label('Dibuat Oleh (ID)')
-                    ->icon('heroicon-o-identification')
+                    ->label('Dibuat Oleh')
+                    ->badge()
+                    ->icon('heroicon-s-user')
                     ->numeric()
-                    ->color('warning')
-                    ->tooltip('ID Pembuat Slip'),
+                    ->color('warning'),
 
                 TextColumn::make('created_at')
                     ->label('Dibuat')

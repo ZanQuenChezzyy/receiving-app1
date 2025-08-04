@@ -132,9 +132,6 @@ class GoodsReceiptSlipDetailResource extends Resource
     {
         return [
             'index' => Pages\ListGoodsReceiptSlipDetails::route('/'),
-            'create' => Pages\CreateGoodsReceiptSlipDetail::route('/create'),
-            'view' => Pages\ViewGoodsReceiptSlipDetail::route('/{record}'),
-            'edit' => Pages\EditGoodsReceiptSlipDetail::route('/{record}/edit'),
         ];
     }
 }

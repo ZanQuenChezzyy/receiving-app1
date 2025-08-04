@@ -15,6 +15,7 @@ return new class extends Migration {
             $table->foreignId('delivery_order_receipt_id')->constrained('delivery_order_receipts')->cascadeOnDelete()->name('fk_rdtv_details_do');
             $table->date('tanggal_terbit');
             $table->string('code', 50);
+            $table->string('code_124', 20);
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
             $table->text('keterangan')->nullable();
             $table->timestamps();

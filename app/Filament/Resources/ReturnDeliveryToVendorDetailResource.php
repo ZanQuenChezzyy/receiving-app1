@@ -75,6 +75,7 @@ class ReturnDeliveryToVendorDetailResource extends Resource
             ->columns([
                 TextColumn::make('returnDeliveryToVendor.deliveryOrderReceipts.purchaseOrderTerbits.purchase_order_no')
                     ->label('Nomor PO')
+                    ->description(fn($record) => 'Kode 124: ' . ($record->ReturnDeliveryToVendor->code_124 ?? '-'))
                     ->icon('heroicon-s-document-text')
                     ->color('primary')
                     ->searchable(),
@@ -127,9 +128,6 @@ class ReturnDeliveryToVendorDetailResource extends Resource
     {
         return [
             'index' => Pages\ListReturnDeliveryToVendorDetails::route('/'),
-            'create' => Pages\CreateReturnDeliveryToVendorDetail::route('/create'),
-            'view' => Pages\ViewReturnDeliveryToVendorDetail::route('/{record}'),
-            'edit' => Pages\EditReturnDeliveryToVendorDetail::route('/{record}/edit'),
         ];
     }
 }

@@ -202,19 +202,6 @@ class GoodsReceiptSlipResource extends Resource
                             ->suffix(' item')
                     ),
 
-                TextColumn::make('goods_receipt_slip_details_sum_quantity')
-                    ->label('Total Qty')
-                    ->badge()
-                    ->suffix(' Qty')
-                    ->color('success')
-                    ->icon('heroicon-s-cube')
-                    ->sortable()
-                    ->summarize(
-                        Sum::make()
-                            ->label('Grand Total')
-                            ->suffix(' Qty')
-                    ),
-
                 TextColumn::make('createdBy.name')
                     ->label('Dibuat Oleh')
                     ->badge()

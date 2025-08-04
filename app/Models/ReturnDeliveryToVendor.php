@@ -13,6 +13,7 @@ class ReturnDeliveryToVendor extends Model
         'delivery_order_receipt_id',
         'tanggal_terbit',
         'code',
+        'code_124',
         'created_by',
         'keterangan',
     ];

@@ -10,6 +10,7 @@ use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
@@ -68,11 +69,12 @@ class TransmittalKembaliDetailResource extends Resource
                 return $query->latest(); // urutkan berdasarkan created_at DESC
             })
             ->columns([
-                Tables\Columns\TextColumn::make('code')
-                    ->label('Kode Dokumen')
-                    ->searchable()
-                    ->color('primary')
+                TextColumn::make('transmittalKirim.deliveryOrderReceipts.purchaseOrderTerbits.purchase_order_no')
+                    ->label('Nomor PO')
                     ->icon('heroicon-s-document-text')
+                    ->color('primary')
+                    ->searchable()
+                    ->sortable()
                     ->description(fn($record) => 'Kode QC: ' . ($record->code_103 ?? '-')),
 
                 Tables\Columns\TextColumn::make('total_item')

@@ -56,13 +56,14 @@ class ReturnDeliveryToVendorResource extends Resource
                     ->icon('heroicon-o-qr-code')
                     ->description('Scan kode QR dari Delivery Order untuk menarik data secara otomatis.')
                     ->schema([
-                        Grid::make(2)->schema([
+                        Grid::make(3)->schema([
                             DatePicker::make('tanggal_terbit')
                                 ->label('Tanggal Terbit')
                                 ->placeholder('Pilih Tanggal Terbit')
                                 ->displayFormat('l, d F Y')
                                 ->native(false)
                                 ->required()
+                                ->default(now())
                                 ->prefixIcon('heroicon-o-calendar'),
 
                             TextInput::make('code')
@@ -70,6 +71,7 @@ class ReturnDeliveryToVendorResource extends Resource
                                 ->placeholder('Contoh: 5000001269086PLJ072514072025')
                                 ->prefixIcon('heroicon-o-qr-code')
                                 ->required()
+                                ->autoFocus()
                                 ->unique(ignoreRecord: true)
                                 ->live()
                                 ->afterStateUpdated(function ($state, callable $set) {
@@ -113,6 +115,12 @@ class ReturnDeliveryToVendorResource extends Resource
 
                                     $set('returnDeliveryToVendorDetails', $details->toArray());
                                 }),
+
+                            TextInput::make('code_124')
+                                ->label('Kode 124')
+                                ->placeholder('Contoh: 5006550097')
+                                ->prefixIcon('heroicon-o-qr-code')
+                                ->required(),
 
                             Hidden::make('delivery_order_receipt_id')->required(),
                             Hidden::make('created_by')->default(Auth::user()->id),
@@ -165,12 +173,14 @@ class ReturnDeliveryToVendorResource extends Resource
             ->groups([
                 Group::make('tanggal_terbit')
                     ->label('Tanggal Terbit')
-                    ->date(),
+                    ->date()
+                    ->collapsible(),
             ])
             ->defaultGroup(
                 Group::make('tanggal_terbit')
                     ->label('Tanggal Terbit')
-                    ->date(),
+                    ->date()
+                    ->collapsible(),
             )
             ->columns([
                 TextColumn::make('tanggal_terbit')
@@ -182,6 +192,7 @@ class ReturnDeliveryToVendorResource extends Resource
                 TextColumn::make('deliveryOrderReceipts.purchaseOrderTerbits.purchase_order_no')
                     ->label('Nomor PO')
                     ->icon('heroicon-s-document-text')
+                    ->description(fn($record) => 'Kode 124: ' . ($record->code_124 ?? '-'))
                     ->color('primary')
                     ->searchable(),
 
@@ -196,19 +207,6 @@ class ReturnDeliveryToVendorResource extends Resource
                         Sum::make()
                             ->label('Grand Total')
                             ->suffix(' item')
-                    ),
-
-                TextColumn::make('return_delivery_to_vendor_details_sum_quantity')
-                    ->label('Total Qty')
-                    ->badge()
-                    ->suffix(' Qty')
-                    ->color('danger')
-                    ->icon('heroicon-s-cube')
-                    ->sortable()
-                    ->summarize(
-                        Sum::make()
-                            ->label('Grand Total')
-                            ->suffix(' Qty')
                     ),
 
                 TextColumn::make('createdBy.name')

@@ -284,6 +284,7 @@ class PurchaseOrderTerbitResource extends Resource
             ->modifyQueryUsing(function (Builder $query) {
                 return $query->latest(); // urutkan berdasarkan created_at DESC
             })
+            ->deferLoading()
             ->poll('10s')
             ->columns([
                 TextColumn::make('purchase_order_and_item')

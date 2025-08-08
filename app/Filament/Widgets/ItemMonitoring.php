@@ -28,6 +28,7 @@ class ItemMonitoring extends BaseWidget
     public function table(Table $table): Table
     {
         return $table
+            ->heading('Monitoring Dokumen Receiving')
             ->query(
                 DeliveryOrderReceipt::query()
                     ->with([
@@ -114,9 +115,7 @@ class ItemMonitoring extends BaseWidget
                 TextColumn::make('purchaseOrderTerbits.purchase_order_no')
                     ->label('No. PO')
                     ->color('primary')
-                    ->icon('heroicon-s-document-text')
-                    ->searchable()
-                    ->sortable(),
+                    ->icon('heroicon-s-document-text'),
 
                 TextColumn::make('tanggal_proses')
                     ->label('Tanggal Proses')
@@ -354,6 +353,26 @@ class ItemMonitoring extends BaseWidget
             ])
             ->recordAction('view')
             ->filters([
+                TernaryFilter::make('masih_proses')
+                    ->label('Status Proses')
+                    ->placeholder('Semua')
+                    ->trueLabel('Masih Proses')
+                    ->falseLabel('Sudah Selesai')
+                    ->queries(
+                        true: fn(Builder $query) =>
+                        $query->whereDoesntHave('goodsReceiptSlips')
+                            ->whereDoesntHave('returnDeliveryToVendors'),
+
+                        false: fn(Builder $query) =>
+                        $query->where(function ($query) {
+                            $query->whereHas('goodsReceiptSlips')
+                                ->orWhereHas('returnDeliveryToVendors');
+                        }),
+
+                        blank: fn(Builder $query) => $query
+                    )
+                    ->native(false),
+
                 TernaryFilter::make('status_103')
                     ->label('Status 103')
                     ->placeholder('Semua')
@@ -389,8 +408,8 @@ class ItemMonitoring extends BaseWidget
                         blank: fn(Builder $query) => $query,
                     )
                     ->native(false),
-            ], layout: FiltersLayout::Modal)
-            ->filtersFormColumns(3)
+            ], layout: FiltersLayout::AboveContent)
+            ->filtersFormColumns(4)
             ->filtersTriggerAction(
                 fn(Action $action) => $action
                     ->button()

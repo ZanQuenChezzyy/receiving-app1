@@ -159,7 +159,7 @@ class ChezzyResource extends Command
         ], $pipes);
 
         if (is_resource($process)) {
-            fwrite($pipes[0], "2\n");
+            fwrite($pipes[0], "3\n");
             fclose($pipes[0]);
 
             fclose($pipes[1]);

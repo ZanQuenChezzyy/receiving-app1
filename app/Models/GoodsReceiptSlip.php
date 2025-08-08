@@ -30,4 +30,10 @@ class GoodsReceiptSlip extends Model
     {
         return $this->hasMany(\App\Models\GoodsReceiptSlipDetail::class);
     }
+
+    public function approvalVpDetails(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\ApprovalVpDetail::class);
+    }
+
 }

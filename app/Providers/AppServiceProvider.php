@@ -21,6 +21,7 @@ use App\Filament\Resources\UserResource;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\View\View;
 
@@ -39,6 +40,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // if (config('app.env') === 'local') {
+        //     URL::forceScheme('https');
+        // }
         // Vite Hot Reload
         FilamentView::registerRenderHook(
             PanelsRenderHook::BODY_END,

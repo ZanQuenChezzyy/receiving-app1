@@ -51,7 +51,7 @@
             $locationRaw = $detail?->is_different_location
                 ? optional($detail->locations)->name ?? 'Lokasi Beda (Tidak diketahui)'
                 : optional($do->locations)->name ?? 'Lokasi Utama (Tidak diketahui)';
-            $location = \Illuminate\Support\Str::limit($locationRaw, 24);
+            $location = \Illuminate\Support\Str::limit($locationRaw, 20);
         @endphp
 
         <div class="page">

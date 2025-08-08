@@ -29,6 +29,7 @@ class ItemMonitoring extends BaseWidget
     {
         return $table
             ->heading('Monitoring Dokumen Receiving')
+            ->deferLoading()
             ->query(
                 DeliveryOrderReceipt::query()
                     ->with([
@@ -416,9 +417,11 @@ class ItemMonitoring extends BaseWidget
                     ->label('Filter'),
             )
             ->actions([
-                ViewAction::make()
+                Action::make('view')
                     ->label('Detail')
                     ->button()
+                    ->color('gray')
+                    ->icon('heroicon-m-eye')
                     ->infolist(fn(DeliveryOrderReceipt $record) => [
                         Grid::make(2)->schema([
                             Section::make('Status Proses')

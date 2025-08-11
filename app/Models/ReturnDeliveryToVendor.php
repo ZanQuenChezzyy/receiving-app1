@@ -30,10 +30,4 @@ class ReturnDeliveryToVendor extends Model
     {
         return $this->hasMany(\App\Models\ReturnDeliveryToVendorDetail::class);
     }
-
-    public function approvalVpDetails(): \Illuminate\Database\Eloquent\Relations\HasMany
-    {
-        return $this->hasMany(\App\Models\ApprovalVpDetail::class);
-    }
-
 }

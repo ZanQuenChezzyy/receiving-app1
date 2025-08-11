@@ -2,9 +2,9 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\ApprovalVpResource\Pages;
-use App\Filament\Resources\ApprovalVpResource\RelationManagers;
-use App\Models\ApprovalVp;
+use App\Filament\Resources\ApprovalVpKirimResource\Pages;
+use App\Filament\Resources\ApprovalVpKirimResource\RelationManagers;
+use App\Models\ApprovalVpKirim;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -13,9 +13,9 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
-class ApprovalVpResource extends Resource
+class ApprovalVpKirimResource extends Resource
 {
-    protected static ?string $model = ApprovalVp::class;
+    protected static ?string $model = ApprovalVpKirim::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
@@ -23,7 +23,10 @@ class ApprovalVpResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\DatePicker::make('tanggal_kembali')
+                Forms\Components\TextInput::make('code')
+                    ->required()
+                    ->maxLength(50),
+                Forms\Components\DatePicker::make('tanggal_kirim')
                     ->required(),
                 Forms\Components\TextInput::make('created_by')
                     ->required()
@@ -35,7 +38,9 @@ class ApprovalVpResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('tanggal_kembali')
+                Tables\Columns\TextColumn::make('code')
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('tanggal_kirim')
                     ->date()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_by')
@@ -74,10 +79,10 @@ class ApprovalVpResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListApprovalVps::route('/'),
-            'create' => Pages\CreateApprovalVp::route('/create'),
-            'view' => Pages\ViewApprovalVp::route('/{record}'),
-            'edit' => Pages\EditApprovalVp::route('/{record}/edit'),
+            'index' => Pages\ListApprovalVpKirims::route('/'),
+            'create' => Pages\CreateApprovalVpKirim::route('/create'),
+            'view' => Pages\ViewApprovalVpKirim::route('/{record}'),
+            'edit' => Pages\EditApprovalVpKirim::route('/{record}/edit'),
         ];
     }
 }

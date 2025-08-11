@@ -2,9 +2,9 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\ApprovalVpDetailResource\Pages;
-use App\Filament\Resources\ApprovalVpDetailResource\RelationManagers;
-use App\Models\ApprovalVpDetail;
+use App\Filament\Resources\ApprovalVpKembaliDetailResource\Pages;
+use App\Filament\Resources\ApprovalVpKembaliDetailResource\RelationManagers;
+use App\Models\ApprovalVpKembaliDetail;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -13,9 +13,9 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
-class ApprovalVpDetailResource extends Resource
+class ApprovalVpKembaliDetailResource extends Resource
 {
-    protected static ?string $model = ApprovalVpDetail::class;
+    protected static ?string $model = ApprovalVpKembaliDetail::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
@@ -23,19 +23,21 @@ class ApprovalVpDetailResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Select::make('approval_vp_id')
-                    ->relationship('approvalVp', 'id')
+                Forms\Components\Select::make('approval_vp_kirim_id')
+                    ->relationship('approvalVpKirim', 'id')
+                    ->required(),
+                Forms\Components\Select::make('approval_vp_kembali_id')
+                    ->relationship('approvalVpKembali', 'id')
                     ->required(),
                 Forms\Components\TextInput::make('code')
                     ->required()
                     ->maxLength(50),
-                Forms\Components\TextInput::make('document_type')
+                Forms\Components\TextInput::make('status')
+                    ->required()
+                    ->maxLength(6),
+                Forms\Components\TextInput::make('total_item')
                     ->required()
                     ->numeric(),
-                Forms\Components\Select::make('goods_receipt_slip_id')
-                    ->relationship('goodsReceiptSlip', 'id'),
-                Forms\Components\Select::make('return_delivery_to_vendor_id')
-                    ->relationship('returnDeliveryToVendor', 'id'),
             ]);
     }
 
@@ -43,18 +45,17 @@ class ApprovalVpDetailResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('approvalVp.id')
+                Tables\Columns\TextColumn::make('approvalVpKirim.id')
+                    ->numeric()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('approvalVpKembali.id')
                     ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('code')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('document_type')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('goodsReceiptSlip.id')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('returnDeliveryToVendor.id')
+                Tables\Columns\TextColumn::make('status')
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('total_item')
                     ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
@@ -90,10 +91,10 @@ class ApprovalVpDetailResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListApprovalVpDetails::route('/'),
-            'create' => Pages\CreateApprovalVpDetail::route('/create'),
-            'view' => Pages\ViewApprovalVpDetail::route('/{record}'),
-            'edit' => Pages\EditApprovalVpDetail::route('/{record}/edit'),
+            'index' => Pages\ListApprovalVpKembaliDetails::route('/'),
+            'create' => Pages\CreateApprovalVpKembaliDetail::route('/create'),
+            'view' => Pages\ViewApprovalVpKembaliDetail::route('/{record}'),
+            'edit' => Pages\EditApprovalVpKembaliDetail::route('/{record}/edit'),
         ];
     }
 }

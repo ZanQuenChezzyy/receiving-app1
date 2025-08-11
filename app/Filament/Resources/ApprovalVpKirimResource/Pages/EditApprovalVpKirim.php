@@ -1,14 +1,14 @@
 <?php
 
-namespace App\Filament\Resources\ApprovalVpResource\Pages;
+namespace App\Filament\Resources\ApprovalVpKirimResource\Pages;
 
-use App\Filament\Resources\ApprovalVpResource;
+use App\Filament\Resources\ApprovalVpKirimResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 
-class EditApprovalVp extends EditRecord
+class EditApprovalVpKirim extends EditRecord
 {
-    protected static string $resource = ApprovalVpResource::class;
+    protected static string $resource = ApprovalVpKirimResource::class;
 
     protected function getHeaderActions(): array
     {

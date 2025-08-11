@@ -10,9 +10,10 @@ return new class extends Migration {
      */
     public function up(): void
     {
-        Schema::create('approval_vps', function (Blueprint $table) {
+        Schema::create('approval_vp_kirims', function (Blueprint $table) {
             $table->id();
-            $table->date('tanggal_kembali');
+            $table->string('code', 50);
+            $table->date('tanggal_kirim');
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
             $table->timestamps();
         });
@@ -23,6 +24,6 @@ return new class extends Migration {
      */
     public function down(): void
     {
-        Schema::dropIfExists('approval_vps');
+        Schema::dropIfExists('approval_vp_kirims');
     }
 };

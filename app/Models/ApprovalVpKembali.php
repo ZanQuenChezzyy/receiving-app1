@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class ApprovalVp extends Model
+class ApprovalVpKembali extends Model
 {
     use HasFactory;
 
@@ -19,10 +19,8 @@ class ApprovalVp extends Model
         return $this->belongsTo(\App\Models\User::class, 'created_by', 'id');
     }
 
-
-    public function approvalVpDetails(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function approvalVpKembaliDetails(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(\App\Models\ApprovalVpDetail::class);
+        return $this->hasMany(\App\Models\ApprovalVpKembaliDetail::class);
     }
-
 }

@@ -83,10 +83,15 @@ class User extends Authenticatable implements HasAvatar
         return $this->hasMany(\App\Models\ReturnDeliveryToVendor::class);
     }
 
-
-    public function approvalVps(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function approvalVpKirims(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(\App\Models\ApprovalVp::class);
+        return $this->hasMany(\App\Models\ApprovalVpKirim::class);
+    }
+
+
+    public function approvalVpKembalis(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\ApprovalVpKembali::class);
     }
 
 }

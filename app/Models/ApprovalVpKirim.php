@@ -1,0 +1,27 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class ApprovalVpKirim extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'code',
+        'tanggal_kirim',
+        'created_by',
+    ];
+
+    public function createdBy(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(\App\Models\User::class, 'created_by', 'id');
+    }
+
+    public function approvalVpKembaliDetails(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\ApprovalVpKembaliDetail::class);
+    }
+}

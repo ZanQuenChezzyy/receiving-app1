@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Models\ApprovalVpKembali;
 use App\Models\DeliveryOrderReceipt;
 use Carbon\Carbon;
 use Filament\Infolists\Components\Grid;
@@ -446,7 +447,7 @@ class ItemMonitoring extends BaseWidget
                                                 ->formatStateUsing(fn($state) => $state ? Carbon::parse($state)->translatedFormat('l, d F Y') : 'Belum diterima'),
 
                                             TextEntry::make('transmittalKirims.0.tanggal_kirim')
-                                                ->label('Tanggl Kirim QC')
+                                                ->label('Tanggal Kirim QC')
                                                 ->formatStateUsing(fn($state) => $state ? Carbon::parse($state)->translatedFormat('l, d F Y') : 'Belum dikirim')
                                                 ->placeholder('Belum dikirim'),
 
@@ -454,6 +455,33 @@ class ItemMonitoring extends BaseWidget
                                                 ->label('Tanggal Kembali QC')
                                                 ->formatStateUsing(fn($state) => $state ? Carbon::parse($state)->translatedFormat('l, d F Y') : 'Belum kembali')
                                                 ->placeholder('Belum kembali'),
+
+                                            TextEntry::make('tanggal_kirim_approval_vp')
+                                                ->label('Tanggal Kirim Approval VP')
+                                                ->getStateUsing(function ($record) {
+                                                    $tanggalKirim = \App\Models\ApprovalVpKirim::where('code', $record->do_code)
+                                                        ->value('tanggal_kirim');
+
+                                                    return $tanggalKirim
+                                                        ? Carbon::parse($tanggalKirim)->translatedFormat('l, d F Y')
+                                                        : 'Belum dikirim';
+                                                }),
+
+                                            TextEntry::make('tanggal_kembali_approval_vp')
+                                                ->label('Tanggal Kembali Approval VP')
+                                                ->getStateUsing(function ($record) {
+                                                    $tanggalKembali = ApprovalVpKembali::query()
+                                                        ->whereIn('id', function ($query) use ($record) {
+                                                            $query->select('approval_vp_kembali_id')
+                                                                ->from('approval_vp_kembali_details')
+                                                                ->where('code', $record->do_code);
+                                                        })
+                                                        ->value('tanggal_kembali');
+
+                                                    return $tanggalKembali
+                                                        ? Carbon::parse($tanggalKembali)->translatedFormat('l, d F Y')
+                                                        : '-';
+                                                }),
                                         ]),
                                 ])
                                 ->columns(2),
@@ -465,6 +493,7 @@ class ItemMonitoring extends BaseWidget
                             ->schema([
                                 Grid::make(3)
                                     ->schema([
+                                        // Leadtime QC
                                         TextEntry::make('lead_time_terima')
                                             ->label('Status QC')
                                             ->getStateUsing(function ($record) {
@@ -474,6 +503,7 @@ class ItemMonitoring extends BaseWidget
                                                 return is_numeric($result) ? "{$result} hari" : $result;
                                             }),
 
+                                        // Leadtime Kirim QC - Kembali QC
                                         TextEntry::make('lead_time_kirim_kembali')
                                             ->label('Leadtime QC')
                                             ->getStateUsing(function ($record) {
@@ -483,6 +513,7 @@ class ItemMonitoring extends BaseWidget
                                                 return is_numeric($result) ? "{$result} hari" : $result;
                                             }),
 
+                                        // Leadtime Terima - GRS/RDTV
                                         TextEntry::make('lead_time_completion')
                                             ->label('Leadtime GRS/RDTV')
                                             ->getStateUsing(function ($record) {
@@ -491,6 +522,41 @@ class ItemMonitoring extends BaseWidget
                                                     $record->goodsReceiptSlips->first()?->tanggal_terbit,
                                                     $record->returnDeliveryToVendors->first()?->tanggal_terbit
                                                 ])->filter()->sort()->first();
+                                                $result = static::hitungHariKerja($start, $end);
+                                                return is_numeric($result) ? "{$result} hari" : $result;
+                                            }),
+
+                                        // Leadtime GRS/RDTV - Approval VP Kirim
+                                        TextEntry::make('lead_time_vp_kirim')
+                                            ->label('Approval VP Kirim')
+                                            ->getStateUsing(function ($record) {
+                                                $start = collect([
+                                                    $record->goodsReceiptSlips->first()?->tanggal_terbit,
+                                                    $record->returnDeliveryToVendors->first()?->tanggal_terbit
+                                                ])->filter()->sort()->first();
+
+                                                $approvalVpKirim = \App\Models\ApprovalVpKirim::whereHas('approvalVpKembaliDetails', function ($q) use ($record) {
+                                                    $q->whereHas('approvalVpKembali', function () {});
+                                                })
+                                                    ->whereHas('approvalVpKembaliDetails.approvalVpKembali', function () {})
+                                                    ->first();
+
+                                                $end = $approvalVpKirim?->tanggal_kirim;
+                                                $result = static::hitungHariKerja($start, $end);
+                                                return is_numeric($result) ? "{$result} hari" : $result;
+                                            }),
+
+                                        // Leadtime Approval VP Kirim - Approval VP Kembali
+                                        TextEntry::make('lead_time_vp_kembali')
+                                            ->label('Approval VP Kembali')
+                                            ->getStateUsing(function ($record) {
+                                                $approvalVpKirim = \App\Models\ApprovalVpKirim::whereHas('approvalVpKembaliDetails', function ($q) use ($record) {
+                                                    $q->whereHas('approvalVpKembali', function () {});
+                                                })
+                                                    ->first();
+
+                                                $start = $approvalVpKirim?->tanggal_kirim;
+                                                $end = $approvalVpKirim?->approvalVpKembaliDetails->first()?->approvalVpKembali?->tanggal_kembali;
                                                 $result = static::hitungHariKerja($start, $end);
                                                 return is_numeric($result) ? "{$result} hari" : $result;
                                             }),

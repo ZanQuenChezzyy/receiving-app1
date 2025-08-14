@@ -14,7 +14,7 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('transmittal_kembali_id')->constrained('transmittal_kembalis')->cascadeOnDelete();
             $table->foreignId('transmittal_kirim_id')->constrained('transmittal_kirims')->cascadeOnDelete();
-            $table->foreignId('do_receipt_detail_id')->constrained('delivery_order_receipt_details')->cascadeOnDelete();
+            $table->foreignId('delivery_order_receipt_id')->constrained('delivery_order_receipts')->cascadeOnDelete();
             $table->string('code', 50);
             $table->string('code_103', 15);
             $table->unsignedMediumInteger('total_item');

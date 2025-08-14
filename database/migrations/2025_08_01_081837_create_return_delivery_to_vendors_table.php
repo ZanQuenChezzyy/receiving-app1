@@ -12,13 +12,18 @@ return new class extends Migration {
     {
         Schema::create('return_delivery_to_vendors', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('delivery_order_receipt_id')->constrained('delivery_order_receipts')->cascadeOnDelete()->name('fk_rdtv_details_do');
+            $table->unsignedBigInteger('delivery_order_receipt_id');
             $table->date('tanggal_terbit');
             $table->string('code', 50);
             $table->string('code_124', 20);
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
             $table->text('keterangan')->nullable();
             $table->timestamps();
+
+            $table->foreign('delivery_order_receipt_id', 'fk_rdtv_details_do')
+                ->references('id')
+                ->on('delivery_order_receipts')
+                ->onDelete('cascade');
         });
     }
 

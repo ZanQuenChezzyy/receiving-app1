@@ -104,7 +104,7 @@ class TransmittalKembaliResource extends Resource
                                                 $set('total_item', null);
                                                 $set('tanggal_kirim', null);
                                                 $set('transmittal_kirim_id', null);
-                                                $set('do_receipt_detail_id', null);
+                                                $set('delivery_order_receipt_id', null);
                                                 return;
                                             }
 
@@ -117,7 +117,7 @@ class TransmittalKembaliResource extends Resource
                                             $set('code_103', $transmittal->code_103);
                                             $set('tanggal_kirim', $tanggal->format('Y-m-d'));
                                             $set('transmittal_kirim_id', $transmittal->id);
-                                            $set('do_receipt_detail_id', optional($transmittal->deliveryOrderReceipts)->id);
+                                            $set('delivery_order_receipt_id', optional($transmittal->deliveryOrderReceipts)->id);
 
                                             $total = $transmittal->deliveryOrderReceipts?->deliveryOrderReceiptDetails->count() ?? 0;
                                             $set('total_item', $total);
@@ -130,7 +130,7 @@ class TransmittalKembaliResource extends Resource
                                                     'tanggal_kirim' => '',
                                                     'total_item' => '',
                                                     'transmittal_kirim_id' => null,
-                                                    'do_receipt_detail_id' => null,
+                                                    'delivery_order_receipt_id' => null,
                                                 ];
 
                                                 $set('../../transmittalKembaliDetails', $details);
@@ -161,7 +161,7 @@ class TransmittalKembaliResource extends Resource
                                 Hidden::make('transmittal_kirim_id')
                                     ->required(),
 
-                                Hidden::make('do_receipt_detail_id')
+                                Hidden::make('delivery_order_receipt_id')
                                     ->required(),
                             ])
                             ->addActionLabel('Tambah Daftar')
@@ -180,7 +180,7 @@ class TransmittalKembaliResource extends Resource
                                                 'tanggal_kirim' => '',
                                                 'total_item' => '',
                                                 'transmittal_kirim_id' => null,
-                                                'do_receipt_detail_id' => null,
+                                                'delivery_order_receipt_id' => null,
                                             ];
                                         }
 
@@ -208,11 +208,24 @@ class TransmittalKembaliResource extends Resource
 
                 Tables\Columns\TextColumn::make('transmittalKembaliDetails.code')
                     ->label('Daftar Dokumen')
+                    ->getStateUsing(function ($record) {
+                        return $record->transmittalKembaliDetails
+                            ->map(function ($detail) {
+                                $do = \App\Models\DeliveryOrderReceipt::where('do_code', $detail->code)
+                                    ->withCount('deliveryOrderReceiptDetails') // langsung hitung total item DO
+                                    ->with('purchaseOrderTerbits')
+                                    ->first();
+
+                                $poNumber = $do?->purchaseOrderTerbits?->purchase_order_no ?? '-';
+                                $totalItem = $do?->delivery_order_receipt_details_count ?? 0;
+
+                                return "{$poNumber} / {$totalItem}";
+                            });
+                    })
                     ->listWithLineBreaks()
                     ->bulleted()
                     ->limitList(1)
                     ->expandableLimitedList()
-                    ->icon('heroicon-s-document-text')
                     ->color('primary')
                     ->disabledClick(),
 

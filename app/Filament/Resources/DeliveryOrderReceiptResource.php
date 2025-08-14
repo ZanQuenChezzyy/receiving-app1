@@ -80,9 +80,35 @@ class DeliveryOrderReceiptResource extends Resource
                                         ->searchable()
                                         ->live()
                                         ->afterStateUpdated(function ($state, callable $set) {
-                                            $set('deliveryOrderReceiptDetails', [
-                                                ['item_no' => null, 'is_different_location' => false, 'is_qty_tolerance' => false]
-                                            ]);
+                                            if (!$state) {
+                                                $set('deliveryOrderReceiptDetails', []);
+                                                return;
+                                            }
+
+                                            // Ambil semua item dari PO yang dipilih
+                                            $po = PurchaseOrderTerbit::find($state);
+                                            if (!$po) {
+                                                $set('deliveryOrderReceiptDetails', []);
+                                                return;
+                                            }
+
+                                            $items = PurchaseOrderTerbit::where('purchase_order_no', $po->purchase_order_no)
+                                                ->get(['item_no', 'material_code', 'description', 'qty_po', 'uoi']);
+
+                                            // Map ke format repeater
+                                            $repeaterData = $items->map(function ($item) {
+                                                return [
+                                                    'item_no' => $item->item_no,
+                                                    'material_code' => $item->material_code,
+                                                    'description' => $item->description,
+                                                    'quantity' => $item->qty_po,
+                                                    'uoi' => $item->uoi,
+                                                    'is_different_location' => false,
+                                                    'is_qty_tolerance' => false,
+                                                ];
+                                            })->toArray();
+
+                                            $set('deliveryOrderReceiptDetails', $repeaterData);
                                         })
                                         ->required(),
 

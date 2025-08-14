@@ -15,7 +15,7 @@ return new class extends Migration {
             $table->foreignId('approval_vp_kirim_id')->constrained('approval_vp_kirims')->cascadeOnDelete();
             $table->foreignId('approval_vp_kembali_id')->constrained('approval_vp_kembalis')->cascadeOnDelete();
             $table->string('code', 50);
-            $table->string('status', 6); // 105, 124, 105 & 124
+            $table->string('status', 8); // 105, 124, 105 & 124
             $table->unsignedMediumInteger('total_item');
             $table->timestamps();
         });

@@ -75,4 +75,8 @@ class DeliveryOrderReceipt extends Model
     {
         return $this->hasMany(\App\Models\ReturnDeliveryToVendor::class);
     }
+    public function transmittalKembaliDetails(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\TransmittalKembaliDetail::class);
+    }
 }

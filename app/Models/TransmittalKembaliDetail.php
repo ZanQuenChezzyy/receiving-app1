@@ -12,7 +12,7 @@ class TransmittalKembaliDetail extends Model
     protected $fillable = [
         'transmittal_kembali_id',
         'transmittal_kirim_id',
-        'do_receipt_detail_id',
+        'delivery_order_receipt_id',
         'code',
         'code_103',
         'total_item',
@@ -26,8 +26,8 @@ class TransmittalKembaliDetail extends Model
     {
         return $this->belongsTo(\App\Models\TransmittalKirim::class, 'transmittal_kirim_id', 'id');
     }
-    public function deliveryOrderReceiptDetail(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function deliveryOrderReceipts(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
-        return $this->belongsTo(\App\Models\DeliveryOrderReceiptDetail::class, 'do_receipt_detail_id', 'id');
+        return $this->belongsTo(\App\Models\DeliveryOrderReceipt::class, 'delivery_order_receipt_id', 'id');
     }
 }

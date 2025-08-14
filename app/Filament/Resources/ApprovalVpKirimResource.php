@@ -2,9 +2,11 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Clusters\GrsRdtv;
 use App\Filament\Resources\ApprovalVpKirimResource\Pages;
 use App\Filament\Resources\ApprovalVpKirimResource\RelationManagers;
 use App\Models\ApprovalVpKirim;
+use App\Models\DeliveryOrderReceipt;
 use App\Models\GoodsReceiptSlip;
 use App\Models\ReturnDeliveryToVendor;
 use Filament\Forms;
@@ -15,8 +17,12 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Actions\ActionGroup;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
@@ -25,8 +31,23 @@ use Illuminate\Support\Facades\Auth;
 class ApprovalVpKirimResource extends Resource
 {
     protected static ?string $model = ApprovalVpKirim::class;
-
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $cluster = GrsRdtv::class;
+    protected static ?string $label = 'Kirim';
+    protected static ?string $navigationGroup = 'Approval VP';
+    protected static ?string $navigationIcon = 'heroicon-o-arrow-up-on-square';
+    protected static ?string $activeNavigationIcon = 'heroicon-s-arrow-up-on-square';
+    protected static ?int $navigationSort = 5;
+    protected static ?string $slug = 'approval-vp-kirim';
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::count();
+    }
+    public static function getNavigationBadgeColor(): ?string
+    {
+        $count = static::getModel()::count();
+        return $count < 1 ? 'danger' : 'info';
+    }
+    protected static ?string $navigationBadgeTooltip = 'Total Dokumen Kirim';
 
     public static function form(Form $form): Form
     {
@@ -50,9 +71,10 @@ class ApprovalVpKirimResource extends Resource
                                     ->label('Kode Dokumen (Scan QR)')
                                     ->placeholder('Contoh: 5000001269086PLJ072514072025')
                                     ->prefixIcon('heroicon-o-qr-code')
+                                    ->autoFocus()
                                     ->live()
                                     ->required()
-                                    ->afterStateUpdated(function ($state, callable $set) {
+                                    ->afterStateUpdated(function ($state, callable $set, callable $get, \Filament\Forms\Get $form) {
                                         $items = [];
 
                                         // Cari di GRS
@@ -93,6 +115,19 @@ class ApprovalVpKirimResource extends Resource
                                             })->toArray();
 
                                             $items = array_merge($items, $rdtvItems);
+                                        }
+
+                                        if (empty($items)) {
+                                            // Tampilkan notifikasi error di tempat
+                                            Notification::make()
+                                                ->title('Kode dokumen tidak ditemukan')
+                                                ->danger()
+                                                ->send();
+
+                                            // Kosongkan repeater
+                                            $set('items', []);
+
+                                            return;
                                         }
 
                                         // Set ke repeater
@@ -181,21 +216,93 @@ class ApprovalVpKirimResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->columns([
-                Tables\Columns\TextColumn::make('code')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('tanggal_kirim')
+            ->modifyQueryUsing(function (Builder $query) {
+                return $query->latest(); // Urut berdasarkan created_at DESC
+            })
+            ->groups([
+                Group::make('tanggal_kirim')
+                    ->label('Tanggal Kirim')
                     ->date()
+            ])
+            ->defaultGroup(
+                Group::make('tanggal_kirim')
+                    ->label('Tanggal Kirim')
+                    ->date()
+            )
+            ->columns([
+                TextColumn::make('tanggal_kirim')
+                    ->label('Tanggal Kirim')
+                    ->date('l, d F Y')
+                    ->color('gray')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('created_by')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
+
+                TextColumn::make('purchase_order_no')
+                    ->label('No. PO')
+                    ->icon('heroicon-s-document-text')
+                    ->color('primary')
+                    ->searchable()
+                    ->getStateUsing(function ($record) {
+                        // ambil DO berdasarkan code
+                        $do = DeliveryOrderReceipt::where('do_code', $record->code)
+                            ->with('purchaseOrderTerbits')
+                            ->first();
+                        return $do?->purchaseOrderTerbits?->purchase_order_no ?? '-';
+                    })
+                    ->description(function ($record) {
+                        $do = DeliveryOrderReceipt::where('do_code', $record->code)
+                            ->withCount('deliveryOrderReceiptDetails')
+                            ->first();
+                        return 'Total Item: ' . ($do->delivery_order_receipt_details_count ?? 0);
+                    }),
+
+                TextColumn::make('keterangan')
+                    ->label('Keterangan')
+                    ->getStateUsing(function ($record) {
+                        $do = DeliveryOrderReceipt::where('do_code', $record->code)->first();
+
+                        if (!$do) {
+                            return ['Tidak ditemukan DO'];
+                        }
+
+                        $grsCount = \App\Models\GoodsReceiptSlipDetail::whereHas('goodsReceiptSlip', function ($q) use ($do) {
+                            $q->where('delivery_order_receipt_id', $do->id);
+                        })
+                            ->count();
+
+                        $rdtvCount = \App\Models\ReturnDeliveryToVendorDetail::whereHas('returnDeliveryToVendor', function ($q) use ($do) {
+                            $q->where('delivery_order_receipt_id', $do->id);
+                        })
+                            ->count();
+
+                        $parts = [];
+                        $parts[] = $grsCount > 0 ? "105: {$grsCount} Item" : '105: Tidak ada';
+                        $parts[] = $rdtvCount > 0 ? "124: {$rdtvCount} Item" : '124: Tidak ada';
+
+                        return $parts; // array
+                    })
+                    ->listWithLineBreaks()
+                    ->limitList(1)
+                    ->expandableLimitedList()
+                    ->bulleted()
+                    ->alignLeft()
+                    ->disabledClick()
+                    ->color('info'),
+
+                TextColumn::make('createdBy.name')
+                    ->label('Dibuat Oleh')
+                    ->badge()
+                    ->color('warning')
+                    ->icon('heroicon-s-user'),
+
+                TextColumn::make('created_at')
+                    ->label('Dibuat')
+                    ->since()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
+
+                TextColumn::make('updated_at')
+                    ->label('Terakhir Update')
+                    ->since()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
@@ -203,8 +310,13 @@ class ApprovalVpKirimResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
+                ActionGroup::make([
+                    Tables\Actions\ViewAction::make(),
+                    Tables\Actions\EditAction::make(),
+                ])
+                    ->icon('heroicon-o-ellipsis-horizontal-circle')
+                    ->color('info')
+                    ->tooltip('Aksi')
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

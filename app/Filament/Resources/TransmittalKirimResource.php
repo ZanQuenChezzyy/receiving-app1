@@ -139,7 +139,7 @@ class TransmittalKirimResource extends Resource
                                 }
 
                                 $receipt = $record->deliveryOrderReceipts; // alias biar lebih singkat
-
+                    
                                 $items = $receipt->deliveryOrderReceiptDetails->map(function ($item) use ($receipt) {
                                     return [
                                         'item_no' => $item->item_no,

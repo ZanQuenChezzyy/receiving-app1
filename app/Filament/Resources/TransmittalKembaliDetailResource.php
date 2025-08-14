@@ -75,7 +75,7 @@ class TransmittalKembaliDetailResource extends Resource
                     ->color('primary')
                     ->searchable()
                     ->sortable()
-                    ->description(fn($record) => 'Kode QC: ' . ($record->code_103 ?? '-')),
+                    ->description(fn($record) => 'Kode 103: ' . ($record->code_103 ?? '-')),
 
                 Tables\Columns\TextColumn::make('total_item')
                     ->label('Total Item')

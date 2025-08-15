@@ -42,13 +42,13 @@ class DeliveryOrderReceiptStatsOverview extends BaseWidget
             Stat::make("DO Hari Ini: $dayName", DeliveryOrderReceipt::whereDate('received_date', $today)->count() . ' DO')
                 ->description("Data DO yang diterima hari ini")
                 ->color('success')
-                ->icon('heroicon-o-calendar')
+                ->icon('heroicon-m-calendar-days')
                 ->chart($doLast7Days->toArray()),
 
             Stat::make("DO Bulan Ini: $monthName", DeliveryOrderReceipt::whereBetween('received_date', [$startOfMonth, now()])->count() . ' DO')
                 ->description('Total DO yang diterima bulan ini')
                 ->color('info')
-                ->icon('heroicon-o-calendar-days')
+                ->icon('heroicon-m-calendar-days')
                 ->chart($weeklyDO->toArray()),
 
             Stat::make("Total Item Bulan Ini: $monthName", DeliveryOrderReceiptDetail::whereHas('deliveryOrderReceipts', function ($query) use ($startOfMonth) {

@@ -61,7 +61,7 @@ class TransmittalKirimResource extends Resource
                                     ->displayFormat('l, d F Y')
                                     ->native(false)
                                     ->live()
-                                    ->prefixIcon('heroicon-o-calendar')
+                                    ->prefixIcon('heroicon-m-calendar-days')
                                     ->placeholder('Pilih Tanggal Kirim')
                                     ->default(now())
                                     ->required(),
@@ -71,6 +71,7 @@ class TransmittalKirimResource extends Resource
                                     ->prefixIcon('heroicon-o-qr-code')
                                     ->autofocus()
                                     ->live()
+                                    ->unique()
                                     ->required()
                                     ->afterStateUpdated(function ($state, callable $set) {
                                         $receipt = DeliveryOrderReceipt::with('deliveryOrderReceiptDetails.locations')

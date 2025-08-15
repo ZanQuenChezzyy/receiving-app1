@@ -167,7 +167,7 @@ class ApprovalVpKembaliDetailResource extends Resource
                     ->label('Dibuat')
                     ->dateTime('d M Y H:i')
                     ->sortable()
-                    ->icon('heroicon-o-calendar-days')
+                    ->icon('heroicon-m-calendar-days')
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('updated_at')

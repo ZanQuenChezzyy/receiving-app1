@@ -216,7 +216,7 @@ class ApprovalVpKembaliResource extends Resource
                     ->date('l, d F Y')
                     ->sortable()
                     ->color('gray')
-                    ->icon('heroicon-o-calendar-days'),
+                    ->icon('heroicon-m-calendar-days'),
 
                 Tables\Columns\TextColumn::make('approvalVpKembaliDetails.code')
                     ->label('Daftar Dokumen')

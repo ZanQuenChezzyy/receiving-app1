@@ -63,7 +63,7 @@ class ApprovalVpKirimResource extends Resource
                                     ->label('Tanggal Kirim')
                                     ->displayFormat('l, d F Y')
                                     ->native(false)
-                                    ->prefixIcon('heroicon-o-calendar')
+                                    ->prefixIcon('heroicon-o-calendar-days')
                                     ->default(now())
                                     ->required(),
 

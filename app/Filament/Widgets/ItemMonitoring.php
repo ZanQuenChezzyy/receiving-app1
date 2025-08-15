@@ -200,11 +200,11 @@ class ItemMonitoring extends BaseWidget
                         $tanggalKirim = collect($record->transmittalKirims)->first()?->tanggal_kirim;
 
                         if (!$tanggalTerima) {
-                            return 'Belum diterima';
+                            return 'Pending';
                         }
 
                         if ($tanggalKirim) {
-                            return 'Sudah dikirim';
+                            return 'Selesai';
                         }
 
                         $start = Carbon::parse($tanggalTerima);
@@ -229,14 +229,14 @@ class ItemMonitoring extends BaseWidget
                             $current->addDay();
                         }
 
-                        return "{$networkDays} hari (Belum dikirim)";
+                        return "{$networkDays} hari (Pending)";
                     })
                     ->color(function ($state) {
-                        if (str_contains($state, 'Belum diterima')) {
+                        if (str_contains($state, 'Pending')) {
                             return 'gray';
                         }
 
-                        if ($state === 'Sudah dikirim') {
+                        if ($state === 'Selesai') {
                             return 'success';
                         }
 
@@ -424,74 +424,77 @@ class ItemMonitoring extends BaseWidget
                     ->color('gray')
                     ->icon('heroicon-m-eye')
                     ->infolist(fn(DeliveryOrderReceipt $record) => [
-                        Grid::make(2)->schema([
-                            Section::make('Status Proses')
-                                ->description('Menampilkan status proses penerimaan dan transmittal dari dokumen pengadaan berdasarkan nomor DO.')
-                                ->collapsible()
-                                ->schema([
-                                    Grid::make(3)
-                                        ->schema([
-                                            TextEntry::make('purchaseOrderTerbits.purchase_order_no')
-                                                ->label('No. PO'),
+                        Section::make('Detail Dokumen')
+                            ->description('Informasi dasar dokumen pengadaan.')
+                            ->collapsed()
+                            ->schema([
+                                Grid::make(3)->schema([
+                                    TextEntry::make('purchaseOrderTerbits.purchase_order_no')
+                                        ->label('No. PO'),
 
-                                            TextEntry::make('nomor_do')
-                                                ->label('No. DO')
-                                                ->getStateUsing(fn($record) => $record->nomor_do ?? '-'),
+                                    TextEntry::make('nomor_do')
+                                        ->label('No. DO')
+                                        ->getStateUsing(fn($record) => $record->nomor_do ?? '-'),
 
-                                            TextEntry::make('receivedBy.name')
-                                                ->label('Diterima Oleh')
-                                                ->getStateUsing(fn($record) => $record->receivedBy->name ?? '-'),
+                                    TextEntry::make('receivedBy.name')
+                                        ->label('Diterima Oleh')
+                                        ->getStateUsing(fn($record) => $record->receivedBy->name ?? '-'),
+                                ]),
+                            ]),
 
-                                            TextEntry::make('received_date')
-                                                ->label('Tanggal Diterima')
-                                                ->formatStateUsing(fn($state) => $state ? Carbon::parse($state)->translatedFormat('l, d F Y') : 'Belum diterima'),
+                        Section::make('Tanggal Proses')
+                            ->description('Menampilkan status proses penerimaan dan transmittal dokumen.')
+                            ->collapsible()
+                            ->schema([
+                                Grid::make(3)->schema([
+                                    TextEntry::make('received_date')
+                                        ->label('Tanggal Diterima')
+                                        ->formatStateUsing(fn($state) => $state ? Carbon::parse($state)->translatedFormat('l, d F Y') : 'Belum diterima'),
 
-                                            TextEntry::make('transmittalKirims.0.tanggal_kirim')
-                                                ->label('Tanggal Kirim QC')
-                                                ->formatStateUsing(fn($state) => $state ? Carbon::parse($state)->translatedFormat('l, d F Y') : 'Belum dikirim')
-                                                ->placeholder('Belum dikirim'),
+                                    TextEntry::make('transmittalKirims.0.tanggal_kirim')
+                                        ->label('Tanggal Kirim QC')
+                                        ->formatStateUsing(fn($state) => $state ? Carbon::parse($state)->translatedFormat('l, d F Y') : 'Belum dikirim')
+                                        ->placeholder('Belum dikirim'),
 
-                                            TextEntry::make('transmittalKirims.0.transmittalKembaliDetails.0.transmittalKembali.tanggal_kembali')
-                                                ->label('Tanggal Kembali QC')
-                                                ->formatStateUsing(fn($state) => $state ? Carbon::parse($state)->translatedFormat('l, d F Y') : 'Belum kembali')
-                                                ->placeholder('Belum kembali'),
+                                    TextEntry::make('transmittalKirims.0.transmittalKembaliDetails.0.transmittalKembali.tanggal_kembali')
+                                        ->label('Tanggal Kembali QC')
+                                        ->formatStateUsing(fn($state) => $state ? Carbon::parse($state)->translatedFormat('l, d F Y') : 'Belum kembali')
+                                        ->placeholder('Belum kembali'),
 
-                                            TextEntry::make('tanggal_kirim_approval_vp')
-                                                ->label('Tanggal Kirim Approval VP')
-                                                ->getStateUsing(function ($record) {
-                                                    $tanggalKirim = \App\Models\ApprovalVpKirim::where('code', $record->do_code)
-                                                        ->value('tanggal_kirim');
+                                    TextEntry::make('tanggal_kirim_approval_vp')
+                                        ->label('Tanggal Kirim Approval VP')
+                                        ->getStateUsing(function ($record) {
+                                            $tanggalKirim = \App\Models\ApprovalVpKirim::where('code', $record->do_code)
+                                                ->value('tanggal_kirim');
 
-                                                    return $tanggalKirim
-                                                        ? Carbon::parse($tanggalKirim)->translatedFormat('l, d F Y')
-                                                        : 'Belum dikirim';
-                                                }),
+                                            return $tanggalKirim
+                                                ? Carbon::parse($tanggalKirim)->translatedFormat('l, d F Y')
+                                                : 'Belum dikirim';
+                                        }),
 
-                                            TextEntry::make('tanggal_kembali_approval_vp')
-                                                ->label('Tanggal Kembali Approval VP')
-                                                ->getStateUsing(function ($record) {
-                                                    $tanggalKembali = ApprovalVpKembali::query()
-                                                        ->whereIn('id', function ($query) use ($record) {
-                                                            $query->select('approval_vp_kembali_id')
-                                                                ->from('approval_vp_kembali_details')
-                                                                ->where('code', $record->do_code);
-                                                        })
-                                                        ->value('tanggal_kembali');
+                                    TextEntry::make('tanggal_kembali_approval_vp')
+                                        ->label('Tanggal Kembali Approval VP')
+                                        ->getStateUsing(function ($record) {
+                                            $tanggalKembali = ApprovalVpKembali::query()
+                                                ->whereIn('id', function ($query) use ($record) {
+                                                    $query->select('approval_vp_kembali_id')
+                                                        ->from('approval_vp_kembali_details')
+                                                        ->where('code', $record->do_code);
+                                                })
+                                                ->value('tanggal_kembali');
 
-                                                    return $tanggalKembali
-                                                        ? Carbon::parse($tanggalKembali)->translatedFormat('l, d F Y')
-                                                        : '-';
-                                                }),
-                                        ]),
-                                ])
-                                ->columns(2),
-                        ]),
+                                            return $tanggalKembali
+                                                ? Carbon::parse($tanggalKembali)->translatedFormat('l, d F Y')
+                                                : 'Belum dikirim';
+                                        }),
+                                ]),
+                            ]),
 
                         Section::make('Lead Time')
                             ->description('Detail durasi proses dokumen')
                             ->collapsed()
                             ->schema([
-                                Grid::make(3)
+                                Grid::make(4)
                                     ->schema([
                                         // Leadtime QC
                                         TextEntry::make('lead_time_terima')
@@ -527,29 +530,10 @@ class ItemMonitoring extends BaseWidget
                                             }),
 
                                         // Leadtime GRS/RDTV - Approval VP Kirim
-                                        TextEntry::make('lead_time_vp_kirim')
-                                            ->label('Approval VP Kirim')
+                                        TextEntry::make('lead_time_vp')
+                                            ->label('Leadtime Approval VP')
                                             ->getStateUsing(function ($record) {
-                                                $start = collect([
-                                                    $record->goodsReceiptSlips->first()?->tanggal_terbit,
-                                                    $record->returnDeliveryToVendors->first()?->tanggal_terbit
-                                                ])->filter()->sort()->first();
-
-                                                $approvalVpKirim = \App\Models\ApprovalVpKirim::whereHas('approvalVpKembaliDetails', function ($q) use ($record) {
-                                                    $q->whereHas('approvalVpKembali', function () {});
-                                                })
-                                                    ->whereHas('approvalVpKembaliDetails.approvalVpKembali', function () {})
-                                                    ->first();
-
-                                                $end = $approvalVpKirim?->tanggal_kirim;
-                                                $result = static::hitungHariKerja($start, $end);
-                                                return is_numeric($result) ? "{$result} hari" : $result;
-                                            }),
-
-                                        // Leadtime Approval VP Kirim - Approval VP Kembali
-                                        TextEntry::make('lead_time_vp_kembali')
-                                            ->label('Approval VP Kembali')
-                                            ->getStateUsing(function ($record) {
+                                                // Ambil data Approval VP Kirim
                                                 $approvalVpKirim = \App\Models\ApprovalVpKirim::whereHas('approvalVpKembaliDetails', function ($q) use ($record) {
                                                     $q->whereHas('approvalVpKembali', function () {});
                                                 })
@@ -557,7 +541,9 @@ class ItemMonitoring extends BaseWidget
 
                                                 $start = $approvalVpKirim?->tanggal_kirim;
                                                 $end = $approvalVpKirim?->approvalVpKembaliDetails->first()?->approvalVpKembali?->tanggal_kembali;
+
                                                 $result = static::hitungHariKerja($start, $end);
+
                                                 return is_numeric($result) ? "{$result} hari" : $result;
                                             }),
                                     ])

@@ -103,7 +103,7 @@ class ReturnDeliveryToVendorDetailResource extends Resource
                     ->label('Dibuat')
                     ->dateTime('d M Y H:i')
                     ->sortable()
-                    ->icon('heroicon-s-calendar')
+                    ->icon('heroicon-s-calendar-days')
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([

@@ -70,7 +70,7 @@ class GoodsReceiptSlipResource extends Resource
                                     ->displayFormat('l, d F Y')
                                     ->native(false)
                                     ->live()
-                                    ->prefixIcon('heroicon-o-calendar')
+                                    ->prefixIcon('heroicon-m-calendar-days')
                                     ->placeholder('Pilih Tanggal Terbit')
                                     ->default(now())
                                     ->required(),

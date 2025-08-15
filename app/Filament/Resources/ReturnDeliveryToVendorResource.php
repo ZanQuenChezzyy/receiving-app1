@@ -64,7 +64,7 @@ class ReturnDeliveryToVendorResource extends Resource
                                 ->native(false)
                                 ->required()
                                 ->default(now())
-                                ->prefixIcon('heroicon-o-calendar'),
+                                ->prefixIcon('heroicon-m-calendar-days'),
 
                             TextInput::make('code')
                                 ->label('Kode Dokumen (Scan QR)')
@@ -103,7 +103,7 @@ class ReturnDeliveryToVendorResource extends Resource
 
                                         if ($sisaQty <= 0)
                                             return null; // skip kalau tidak ada sisa
-
+                        
                                         return [
                                             'item_no' => $item->item_no,
                                             'material_code' => $item->material_code,
@@ -112,7 +112,7 @@ class ReturnDeliveryToVendorResource extends Resource
                                             'uoi' => $item->uoi,
                                         ];
                                     })->filter()->values(); // filter null, reset index
-
+                        
                                     $set('returnDeliveryToVendorDetails', $details->toArray());
                                 }),
 

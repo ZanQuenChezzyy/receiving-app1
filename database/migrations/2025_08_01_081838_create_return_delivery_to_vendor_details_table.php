@@ -13,6 +13,7 @@ return new class extends Migration {
         Schema::create('return_delivery_to_vendor_details', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('return_delivery_to_vendor_id');
+            $table->unsignedBigInteger('delivery_order_receipt_detail_id');
             $table->unsignedMediumInteger('item_no');
             $table->string('quantity', 10);
             $table->string('material_code', 20)->nullable();
@@ -23,6 +24,11 @@ return new class extends Migration {
             $table->foreign('return_delivery_to_vendor_id', 'fk_rdtv_details_vendor')
                 ->references('id')
                 ->on('return_delivery_to_vendors')
+                ->onDelete('cascade');
+
+            $table->foreign('delivery_order_receipt_detail_id', 'fk_rdtv_details_do_detail')
+                ->references('id')
+                ->on('delivery_order_receipt_details')
                 ->onDelete('cascade');
         });
     }

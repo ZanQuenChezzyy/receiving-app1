@@ -119,6 +119,13 @@ class ItemMonitoring extends BaseWidget
                     ->color('primary')
                     ->icon('heroicon-s-document-text'),
 
+                Tables\Columns\TextColumn::make('tahapan')
+                    ->label('Tahapan')
+                    ->placeholder('Tidak Ada')
+                    ->color('info')
+                    ->badge()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 TextColumn::make('tanggal_proses')
                     ->label('Tanggal Proses')
                     ->getStateUsing(function ($record) {

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class DeliveryOrderReceiptDetail extends Model
 {
@@ -57,6 +58,20 @@ class DeliveryOrderReceiptDetail extends Model
         $qtyReceived = (float) $query->sum('quantity');
 
         return [$qtyPo, $qtyReceived];
+    }
+    public function goodsReceiptSlipDetails(): HasMany
+    {
+        return $this->hasMany(GoodsReceiptSlipDetail::class, 'delivery_order_receipt_detail_id');
+    }
+
+    public function returnDeliveryToVendorDetails(): HasMany
+    {
+        return $this->hasMany(ReturnDeliveryToVendorDetail::class, 'delivery_order_receipt_detail_id');
+    }
+
+    public function materialIssuedRequestDetails(): HasMany
+    {
+        return $this->hasMany(MaterialIssuedRequestDetail::class, 'delivery_order_receipt_detail_id');
     }
 
     public function locations(): \Illuminate\Database\Eloquent\Relations\BelongsTo

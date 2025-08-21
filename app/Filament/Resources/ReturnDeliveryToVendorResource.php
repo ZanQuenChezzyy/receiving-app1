@@ -101,10 +101,12 @@ class ReturnDeliveryToVendorResource extends Resource
                                         $qtyInGRS = $grsGrouped[$item->item_no] ?? 0;
                                         $sisaQty = $qtyInDO - $qtyInGRS;
 
-                                        if ($sisaQty <= 0)
+                                        if ($sisaQty <= 0) {
                                             return null; // skip kalau tidak ada sisa
-                        
+                                        }
+
                                         return [
+                                            'delivery_order_receipt_detail_id' => $item->id, // ✅ tambahkan ini
                                             'item_no' => $item->item_no,
                                             'material_code' => $item->material_code,
                                             'description' => $item->description,
@@ -135,6 +137,7 @@ class ReturnDeliveryToVendorResource extends Resource
                             ->label('')
                             ->relationship()
                             ->schema([
+                                Hidden::make('delivery_order_receipt_detail_id'),
                                 TextInput::make('item_no')->label('Item No')->disabled()->dehydrated(),
                                 TextInput::make('material_code')->label('Kode Material')->disabled()->dehydrated(),
                                 TextInput::make('description')->label('Deskripsi')->disabled()->dehydrated(),

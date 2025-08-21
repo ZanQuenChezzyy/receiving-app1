@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 
 class GoodsReceiptSlip extends Model
 {
@@ -29,5 +30,16 @@ class GoodsReceiptSlip extends Model
     public function goodsReceiptSlipDetails(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(\App\Models\GoodsReceiptSlipDetail::class);
+    }
+    public function purchaseOrderTerbit(): HasOneThrough
+    {
+        return $this->hasOneThrough(
+            PurchaseOrderTerbit::class,
+            DeliveryOrderReceipt::class,
+            'id', // PK di delivery_order_receipts
+            'id', // PK di purchase_order_terbit
+            'delivery_order_receipt_id', // FK di goods_receipt_slips
+            'purchase_order_terbit_id' // FK di delivery_order_receipts
+        );
     }
 }

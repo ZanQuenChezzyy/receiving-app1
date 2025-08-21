@@ -97,10 +97,10 @@ class GoodsReceiptSlipResource extends Resource
                                         $set('delivery_order_receipt_id', $deliveryOrder->id);
 
                                         $details = $deliveryOrder->deliveryOrderReceiptDetails->map(function ($item) {
-
                                             return [
                                                 'item_no' => $item->item_no,
                                                 'delivery_order_receipt_id' => $item->delivery_order_receipt_id,
+                                                'delivery_order_receipt_detail_id' => $item->id, // ✅ tambahkan ini
                                                 'material_code' => $item->material_code,
                                                 'description' => $item->description,
                                                 'quantity' => $item->quantity,
@@ -130,6 +130,7 @@ class GoodsReceiptSlipResource extends Resource
                             ->label('')
                             ->relationship()
                             ->schema([
+                                Hidden::make('delivery_order_receipt_detail_id'),
                                 TextInput::make('item_no')->label('Item No')->disabled()->dehydrated(),
                                 TextInput::make('material_code')->label('Kode Material')->disabled()->dehydrated(),
                                 TextInput::make('description')->label('Deskripsi')->disabled()->dehydrated(),
@@ -233,7 +234,7 @@ class GoodsReceiptSlipResource extends Resource
                 ])
                     ->icon('heroicon-o-ellipsis-horizontal-circle')
                     ->color('info')
-                    ->tooltip('Aksi lainnya'),
+                    ->tooltip('Aksi'),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

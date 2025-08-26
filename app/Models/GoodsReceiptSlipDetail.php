@@ -28,4 +28,9 @@ class GoodsReceiptSlipDetail extends Model
     {
         return $this->belongsTo(\App\Models\DeliveryOrderReceiptDetail::class, 'delivery_order_receipt_detail_id', 'id');
     }
+
+    public function transmittalGudangKirimDetails(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\TransmittalGudangKirimDetail::class);
+    }
 }

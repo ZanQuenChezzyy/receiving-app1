@@ -203,13 +203,38 @@ class MaterialIssuedRequestResource extends Resource
                                         ->relationship(
                                             name: 'deliveryOrderReceiptDetail',
                                             titleAttribute: 'item_no',
-                                            modifyQueryUsing: function ($query, callable $get) {
-                                                $poId = $get('../../purchase_order_terbit_id'); // ambil PO parent
+                                            modifyQueryUsing: function ($query, callable $get, $record) {
+                                                $poId = $get('../../purchase_order_terbit_id');
+
                                                 if ($poId) {
                                                     $query->whereHas('deliveryOrderReceipts', function ($q) use ($poId) {
                                                         $q->where('purchase_order_terbit_id', $poId);
                                                     });
                                                 }
+
+                                                // Tambahkan pengecualian untuk item yang sudah dipakai
+                                                $selectedId = $record?->delivery_order_receipt_detail_id;
+
+                                                $query->where(function ($q) use ($poId, $selectedId) {
+                                                    $q->whereExists(function ($sub) use ($poId) {
+                                                        $sub->selectRaw('1')
+                                                            ->from('delivery_order_receipt_details as dord')
+                                                            ->whereColumn('dord.id', 'delivery_order_receipt_details.id')
+                                                            ->whereRaw("
+                                                                (dord.quantity - (
+                                                                    SELECT COALESCE(SUM(mird.issued_qty), 0)
+                                                                    FROM material_issued_request_details mird
+                                                                    JOIN material_issued_requests mir ON mir.id = mird.material_issued_request_id
+                                                                    WHERE mir.purchase_order_terbit_id = ?
+                                                                    AND mird.item_no = dord.item_no
+                                                                )) > 0
+                                                            ", [$poId]);
+                                                    });
+                                                    if ($selectedId) {
+                                                        // tetap tampilkan item yang sudah dipilih
+                                                        $q->orWhere('delivery_order_receipt_details.id', $selectedId);
+                                                    }
+                                                });
                                             }
                                         )
                                         ->placeholder('Pilih')
@@ -358,7 +383,7 @@ class MaterialIssuedRequestResource extends Resource
                                                 $set('issued_qty', $requested);
                                             }
                                         })
-                                        ->helperText(fn($get) => "Qty Diserahkan minimal 0 dan tidak boleh lebih dari: {$get('requested_qty')}"),
+                                        ->helperText(fn($get) => "Tidak boleh lebih dari: {$get('requested_qty')}"),
 
                                     Forms\Components\Select::make('location_id')
                                         ->relationship('location', 'name')
@@ -438,7 +463,8 @@ class MaterialIssuedRequestResource extends Resource
                     ->date('l, d F Y')
                     ->sortable()
                     ->icon('heroicon-m-calendar')
-                    ->color('gray'),
+                    ->color('gray')
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('mir_no')
                     ->label('Nomor PO & MIR')

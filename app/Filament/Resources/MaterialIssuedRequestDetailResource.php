@@ -96,10 +96,12 @@ class MaterialIssuedRequestDetailResource extends Resource
                 Tables\Columns\TextColumn::make('item_no')
                     ->label('Item')
                     ->alignCenter()
+                    ->prefix('Item ')
                     ->color('primary'),
 
                 Tables\Columns\TextColumn::make('stock_no')
                     ->label('Stock No.')
+                    ->placeholder('Tidak Ada')
                     ->searchable()
                     ->badge()
                     ->color('info')
@@ -107,7 +109,7 @@ class MaterialIssuedRequestDetailResource extends Resource
 
                 Tables\Columns\TextColumn::make('description')
                     ->label('Deskripsi')
-                    ->limit(20)
+                    ->limit(30)
                     ->tooltip(fn($record) => $record->description),
 
                 Tables\Columns\TextColumn::make('location.name')

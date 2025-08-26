@@ -23,6 +23,32 @@ class Permission extends SpatiePermission
         return end($words); // Jika cuma 1 kata, pakai kata terakhir saja
     }
 
+    protected static function booted()
+    {
+        static::creating(function ($permission) {
+            $baseName = $permission->name;
+
+            // Jika tidak mengandung action keyword, jangan simpan permission utama
+            if (!preg_match('/\b(View|Create|Update|Delete|Restore|Force Delete|View Any)\b/i', $baseName)) {
+                // Simpan semua turunan, lalu batalkan simpan aslinya
+                $actions = ['View Any', 'View', 'Create', 'Update', 'Delete', 'Restore', 'Force Delete'];
+
+                foreach ($actions as $action) {
+                    $perm = "{$action} {$baseName}";
+
+                    static::firstOrCreate([
+                        'name' => $perm,
+                        'guard_name' => 'web',
+                    ]);
+                }
+
+                return false; // <<=== Batalkan insert ke DB untuk "HargaSewa" (tanpa action)
+            }
+
+            return true; // lanjut simpan kalau ada action-nya
+        });
+    }
+
     public function setResourceAttribute($value)
     {
         $this->attributes['resource'] = $value;

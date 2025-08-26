@@ -11,4 +11,5 @@ class MIR extends Cluster
     protected static ?string $navigationIcon = 'heroicon-o-arrows-right-left';
     protected static ?string $activeNavigationIcon = 'heroicon-s-arrows-right-left';
     protected static ?int $navigationSort = 5;
+    protected static ?string $slug = 'mir-gudang';
 }

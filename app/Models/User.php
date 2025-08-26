@@ -94,4 +94,15 @@ class User extends Authenticatable implements HasAvatar
         return $this->hasMany(\App\Models\ApprovalVpKembali::class);
     }
 
+
+    public function transmittalGudangKirims(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\TransmittalGudangKirim::class);
+    }
+
+    public function transmittalGudangTerimas(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\TransmittalGudangTerima::class);
+    }
+
 }

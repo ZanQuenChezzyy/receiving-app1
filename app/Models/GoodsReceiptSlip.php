@@ -42,4 +42,9 @@ class GoodsReceiptSlip extends Model
             'purchase_order_terbit_id' // FK di delivery_order_receipts
         );
     }
+
+    public function transmittalGudangKirims(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\TransmittalGudangKirim::class);
+    }
 }

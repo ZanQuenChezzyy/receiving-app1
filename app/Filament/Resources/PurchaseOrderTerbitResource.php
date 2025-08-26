@@ -37,7 +37,7 @@ class PurchaseOrderTerbitResource extends Resource
     protected static ?string $activeNavigationIcon = 'heroicon-s-clipboard-document-list';
     protected static ?string $navigationGroup = 'Data Master';
     protected static ?string $slug = 'purchase-order-terbit';
-    protected static ?int $navigationSort = 17;
+    protected static ?int $navigationSort = 18;
 
     public static function getNavigationBadge(): ?string
     {

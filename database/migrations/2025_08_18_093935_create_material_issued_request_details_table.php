@@ -28,11 +28,6 @@ return new class extends Migration {
                 ->on('material_issued_requests')
                 ->onDelete('cascade');
 
-            $table->foreign('goods_receipt_slip_detail_id', 'fk_mir_details_grs')
-                ->references('id')
-                ->on('goods_receipt_slip_details')
-                ->onDelete('cascade');
-
             $table->foreign('location_id', 'fk_mir_details_location')
                 ->references('id')
                 ->on('locations')

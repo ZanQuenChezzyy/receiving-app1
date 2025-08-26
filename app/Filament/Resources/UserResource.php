@@ -154,13 +154,13 @@ class UserResource extends Resource
                             ->visible(fn(Get $get): bool => filled($get('password')))
                             ->dehydrated(false),
                     ])->columnSpan([
-                        'default' => fn(?User $record) => $record === null ? 3 : 3,
-                        'sm' => fn(?User $record) => $record === null ? 2 : 3,
-                        'md' => fn(?User $record) => $record === null ? 3 : 3,
-                        'lg' => fn(?User $record) => $record === null ? 4 : 4,
-                        'xl' => fn(?User $record) => $record === null ? 3 : 2,
-                        '2xl' => fn(?User $record) => $record === null ? 3 : 2,
-                    ])
+                            'default' => fn(?User $record) => $record === null ? 3 : 3,
+                            'sm' => fn(?User $record) => $record === null ? 2 : 3,
+                            'md' => fn(?User $record) => $record === null ? 3 : 3,
+                            'lg' => fn(?User $record) => $record === null ? 4 : 4,
+                            'xl' => fn(?User $record) => $record === null ? 3 : 2,
+                            '2xl' => fn(?User $record) => $record === null ? 3 : 2,
+                        ])
                     ->columns(2),
 
                 Section::make()
@@ -188,6 +188,19 @@ class UserResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function ($query) {
+                $user = Auth::user();
+
+                // Kalau user login bukan Developer
+                if (!$user->hasRole('Developer')) {
+                    $query->where(function ($q) use ($user) {
+                        $q->whereHas('roles', fn($r) => $r->where('name', '!=', 'Developer'))
+                            ->orWhere('id', $user->id); // tetap tampilkan dirinya sendiri
+                    });
+                }
+
+                return $query;
+            })
             ->columns([
                 TextColumn::make('name')
                     ->label('Pengguna')

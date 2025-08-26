@@ -32,6 +32,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('/')
             ->spa()
+            ->viteTheme('resources/css/filament/admin/theme.css')
             ->brandLogo(asset('img/logo-pupuk-kaltim.png'))
             ->brandLogoHeight('2rem')
             ->login(Login::class)

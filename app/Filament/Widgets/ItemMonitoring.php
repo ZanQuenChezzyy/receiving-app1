@@ -20,62 +20,95 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
+use Illuminate\Database\Query\Builder as BaseBuilder;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
 class ItemMonitoring extends BaseWidget
 {
     protected int|string|array $columnSpan = 'full';
+    protected static ?array $cachedHolidays = null;
+
     public function table(Table $table): Table
     {
         return $table
             ->heading('Monitoring Dokumen Receiving')
             ->deferLoading()
+            ->paginated([10, 25, 50])
+            ->defaultPaginationPageOption(10)
             ->query(
                 DeliveryOrderReceipt::query()
+                    ->select('delivery_order_receipts.*')
+
+                    // ⬇️ pakai selectRaw dengan alias yang eksplisit
+                    ->selectRaw("
+            EXISTS (
+                SELECT 1
+                FROM transmittal_kirims tk
+                WHERE tk.delivery_order_receipt_id = delivery_order_receipts.id
+            ) AS has_kirim,
+
+            EXISTS (
+                SELECT 1
+                FROM transmittal_kirims tk
+                JOIN transmittal_kembali_details tkd ON tkd.transmittal_kirim_id = tk.id
+                JOIN transmittal_kembalis tkk ON tkk.id = tkd.transmittal_kembali_id
+                WHERE tk.delivery_order_receipt_id = delivery_order_receipts.id
+            ) AS has_kembali,
+
+            EXISTS (
+                SELECT 1
+                FROM goods_receipt_slips grs
+                WHERE grs.delivery_order_receipt_id = delivery_order_receipts.id
+            ) AS has_grs,
+
+            EXISTS (
+                SELECT 1
+                FROM return_delivery_to_vendors rdtv
+                WHERE rdtv.delivery_order_receipt_id = delivery_order_receipts.id
+            ) AS has_rdtv,
+
+            (SELECT MIN(tk.tanggal_kirim)
+             FROM transmittal_kirims tk
+             WHERE tk.delivery_order_receipt_id = delivery_order_receipts.id) AS tgl_kirim_qc,
+
+            (SELECT MIN(tkk.tanggal_kembali)
+             FROM transmittal_kirims tk
+             JOIN transmittal_kembali_details tkd ON tkd.transmittal_kirim_id = tk.id
+             JOIN transmittal_kembalis tkk ON tkk.id = tkd.transmittal_kembali_id
+             WHERE tk.delivery_order_receipt_id = delivery_order_receipts.id) AS tgl_kembali_qc,
+
+            (SELECT MIN(grs.tanggal_terbit)
+             FROM goods_receipt_slips grs
+             WHERE grs.delivery_order_receipt_id = delivery_order_receipts.id) AS tgl_grs,
+
+            (SELECT MIN(rdtv.tanggal_terbit)
+             FROM return_delivery_to_vendors rdtv
+             WHERE rdtv.delivery_order_receipt_id = delivery_order_receipts.id) AS tgl_rdtv
+        ")
+
                     ->with([
-                        'purchaseOrderTerbits',
-                        'transmittalKirims.transmittalKembaliDetails.transmittalKembali',
-                        'goodsReceiptSlips.goodsReceiptSlipDetails',
-                        'returnDeliveryToVendors.returnDeliveryToVendorDetails',
+                        'purchaseOrderTerbits:id,purchase_order_no',
+                        'receivedBy:id,name',
                     ])
-                    ->leftJoin('transmittal_kirims', 'delivery_order_receipts.id', '=', 'transmittal_kirims.delivery_order_receipt_id')
-                    ->leftJoin('goods_receipt_slips', 'delivery_order_receipts.id', '=', 'goods_receipt_slips.delivery_order_receipt_id')
-                    ->leftJoin('return_delivery_to_vendors', 'delivery_order_receipts.id', '=', 'return_delivery_to_vendors.delivery_order_receipt_id')
-                    ->select('delivery_order_receipts.*') // pastikan hanya kolom utama
+
+                    // aman: ORDER BY pakai alias di atas
                     ->orderByRaw("
-                    CASE
-                        WHEN transmittal_kirims.id IS NULL THEN 0
-                        WHEN transmittal_kirims.id IS NOT NULL
-                            AND (
-                                SELECT COUNT(*)
-                                FROM transmittal_kembali_details
-                                WHERE transmittal_kembali_details.transmittal_kirim_id = transmittal_kirims.id
-                            ) = 0
-                        THEN 1
-                        WHEN goods_receipt_slips.id IS NULL THEN 2
-                        WHEN return_delivery_to_vendors.id IS NULL THEN 3
-                        ELSE 4
-                    END ASC
-                ")
+            CASE
+                WHEN has_kirim = 0 THEN 0
+                WHEN has_kirim = 1 AND has_kembali = 0 THEN 1
+                WHEN has_grs = 0 THEN 2
+                WHEN has_rdtv = 0 THEN 3
+                ELSE 4
+            END ASC
+        ")
             )
             ->columns([
                 IconColumn::make('status_103')
                     ->label('103')
-                    ->getStateUsing(function ($record) {
-                        // Ambil Transmittal Kirim pertama (jika ada)
-                        $firstTransmittal = $record->transmittalKirims()->first();
-
-                        if (!$firstTransmittal) {
-                            return false; // Belum kirim
-                        }
-
-                        // Cek apakah transmittal kembali-nya sudah ada
-                        return $firstTransmittal
-                            ->transmittalKembaliDetails()
-                            ->whereHas('transmittalKembali')
-                            ->exists();
-                    })
+                    ->state(fn($record): bool => (bool) ($record->has_kirim && $record->has_kembali))
                     ->boolean()
                     ->trueIcon('heroicon-s-check-circle')
                     ->falseIcon('heroicon-s-x-circle')
@@ -84,34 +117,28 @@ class ItemMonitoring extends BaseWidget
 
                 IconColumn::make('status_105')
                     ->label('105')
-                    ->getStateUsing(
-                        fn($record) =>
-                        $record->goodsReceiptSlips()->exists()
-                    )
+                    ->state(fn($record): bool => (bool) $record->has_grs)
                     ->boolean()
                     ->trueIcon('heroicon-s-check-circle')
                     ->falseIcon('heroicon-s-x-circle')
                     ->trueColor('success')
-                    ->falseColor(fn($record) => match (true) {
-                        $record->transmittalKirims()->exists() && $record->returnDeliveryToVendors()->exists() => 'gray',
-                        !$record->transmittalKirims()->exists() && !$record->returnDeliveryToVendors()->exists() => 'danger',
+                    ->falseColor(fn(bool $state, $record) => match (true) {
+                        $record->has_kirim && $record->has_rdtv => 'gray',
+                        !$record->has_kirim && !$record->has_rdtv => 'danger',
                         default => 'danger',
                     }),
 
                 IconColumn::make('status_124')
                     ->label('124')
-                    ->getStateUsing(
-                        fn($record) =>
-                        $record->returnDeliveryToVendors()->exists()
-                    )
+                    ->state(fn($record): bool => (bool) $record->has_rdtv)
                     ->boolean()
                     ->trueIcon('heroicon-s-check-circle')
                     ->falseIcon('heroicon-s-x-circle')
                     ->trueColor('success')
-                    ->falseColor(fn($record) => match (true) {
-                        $record->transmittalKirims()->exists() && $record->goodsReceiptSlips()->exists() => 'gray',
-                        !$record->transmittalKirims()->exists() && !$record->goodsReceiptSlips()->exists() => 'danger',
-                        default => 'danger', // kondisi lain, misalnya hanya salah satu true
+                    ->falseColor(fn(bool $state, $record) => match (true) {
+                        $record->has_kirim && $record->has_grs => 'gray',
+                        !$record->has_kirim && !$record->has_grs => 'danger',
+                        default => 'danger',
                     }),
 
                 TextColumn::make('purchaseOrderTerbits.purchase_order_no')
@@ -119,7 +146,7 @@ class ItemMonitoring extends BaseWidget
                     ->color('primary')
                     ->icon('heroicon-s-document-text'),
 
-                Tables\Columns\TextColumn::make('tahapan')
+                TextColumn::make('tahapan')
                     ->label('Tahapan')
                     ->placeholder('Tidak Ada')
                     ->color('info')
@@ -128,39 +155,20 @@ class ItemMonitoring extends BaseWidget
 
                 TextColumn::make('tanggal_proses')
                     ->label('Tanggal Proses')
-                    ->getStateUsing(function ($record) {
-                        $tanggalTerima = $record->received_date
-                            ? Carbon::parse($record->received_date)->format('d/m/Y')
-                            : 'Belum diterima';
+                    ->state(function ($record) {
+                        $terima = $record->received_date ? Carbon::parse($record->received_date)->format('d/m/Y') : 'Belum diterima';
+                        $kirim = $record->tgl_kirim_qc ? Carbon::parse($record->tgl_kirim_qc)->format('d/m/Y') : 'Belum dikirim';
+                        $kembali = $record->tgl_kembali_qc ? Carbon::parse($record->tgl_kembali_qc)->format('d/m/Y') : 'Belum kembali';
+                        $grs = $record->tgl_grs ? Carbon::parse($record->tgl_grs)->format('d/m/Y') : null;
+                        $rdtv = $record->tgl_rdtv ? Carbon::parse($record->tgl_rdtv)->format('d/m/Y') : null;
 
-                        $firstTransmittal = collect($record->transmittalKirims)->first();
-                        $tanggalKirim = $firstTransmittal?->tanggal_kirim;
-                        $tanggalKirimFormatted = $tanggalKirim ? Carbon::parse($tanggalKirim)->format('d/m/Y') : 'Belum dikirim';
-
-                        $firstKembaliDetail = collect($firstTransmittal?->transmittalKembaliDetails)->first();
-                        $tanggalKembali = $firstKembaliDetail?->transmittalKembali?->tanggal_kembali;
-                        $tanggalKembaliFormatted = $tanggalKembali ? Carbon::parse($tanggalKembali)->format('d/m/Y') : 'Belum kembali';
-
-                        $tanggalGRS = collect($record->goodsReceiptSlips)->first()?->tanggal_terbit;
-                        $tanggalRDTV = collect($record->returnDeliveryToVendors)->first()?->tanggal_terbit;
-
-                        // Format tanggal
-                        $tanggalGRSFormatted = $tanggalGRS ? Carbon::parse($tanggalGRS)->format('d/m/Y') : null;
-                        $tanggalRDTVFormatted = $tanggalRDTV ? Carbon::parse($tanggalRDTV)->format('d/m/Y') : null;
-
-                        // Logic teks yang lebih informatif
-                        $textGRS = $tanggalGRSFormatted
-                            ? '105 GRS: ' . $tanggalGRSFormatted
-                            : ($tanggalRDTVFormatted ? '105 GRS: Tidak GRS' : '105 GRS: Belum GRS');
-
-                        $textRDTV = $tanggalRDTVFormatted
-                            ? '124 RDTV: ' . $tanggalRDTVFormatted
-                            : ($tanggalGRSFormatted ? '124 RDTV: Tidak RDTV' : '124 RDTV: Belum RDTV');
+                        $textGRS = $grs ? "105 GRS: $grs" : ($rdtv ? '105 GRS: Tidak GRS' : '105 GRS: Belum GRS');
+                        $textRDTV = $rdtv ? "124 RDTV: $rdtv" : ($grs ? '124 RDTV: Tidak RDTV' : '124 RDTV: Belum RDTV');
 
                         return [
-                            'Terima: ' . $tanggalTerima,
-                            '103 Kirim: ' . $tanggalKirimFormatted,
-                            '103 Kembali: ' . $tanggalKembaliFormatted,
+                            "Terima: $terima",
+                            "103 Kirim: $kirim",
+                            "103 Kembali: $kembali",
                             $textGRS,
                             $textRDTV,
                         ];
@@ -169,195 +177,83 @@ class ItemMonitoring extends BaseWidget
                     ->limitList(1)
                     ->expandableLimitedList()
                     ->bulleted()
-                    ->alignLeft()
                     ->disabledClick()
                     ->wrap()
                     ->color(function ($record) {
-                        $received = $record->received_date;
-                        $kirim = collect($record->transmittalKirims)->first()?->tanggal_kirim;
-                        $kembali = collect(collect($record->transmittalKirims)->first()?->transmittalKembaliDetails)->first()?->transmittalKembali?->tanggal_kembali;
-                        $grs = collect($record->goodsReceiptSlips)->first()?->tanggal_terbit;
-                        $rdtv = collect($record->returnDeliveryToVendors)->first()?->tanggal_terbit;
+                        $received = (bool) $record->received_date;
+                        $kirim = (bool) $record->tgl_kirim_qc;
+                        $kembali = (bool) $record->tgl_kembali_qc;
+                        $grs = (bool) $record->tgl_grs;
+                        $rdtv = (bool) $record->tgl_rdtv;
 
-                        // Semua kosong
-                        if (!$received && !$kirim && !$kembali && !$grs && !$rdtv) {
+                        if (!$received && !$kirim && !$kembali && !$grs && !$rdtv)
                             return 'gray';
-                        }
-
-                        // Jika sudah sampai 103 kembali dan salah satu GRS atau RDTV sudah ada
-                        if ($received && $kirim && $kembali && ($grs || $rdtv)) {
+                        if ($received && $kirim && $kembali && ($grs || $rdtv))
                             return 'success';
-                        }
-
-                        // Jika sudah sampai 103 kembali tapi GRS & RDTV belum ada
-                        if ($received && $kirim && $kembali && !$grs && !$rdtv) {
+                        if ($received && $kirim && $kembali && !$grs && !$rdtv)
                             return 'danger';
-                        }
-
-                        // Selain itu (masih proses)
                         return 'warning';
                     }),
 
+                // ========== Lead time ==========
                 TextColumn::make('lead_time_terima_ke_istek')
                     ->label('Status QC')
                     ->icon('heroicon-s-arrow-right-circle')
                     ->alignCenter()
-                    ->getStateUsing(function ($record) {
-                        $tanggalTerima = $record->received_date;
-                        $tanggalKirim = collect($record->transmittalKirims)->first()?->tanggal_kirim;
-
-                        if (!$tanggalTerima) {
+                    ->state(function ($record) {
+                        if (!$record->received_date)
                             return 'Pending';
-                        }
-
-                        if ($tanggalKirim) {
+                        if ($record->tgl_kirim_qc)
                             return 'Selesai';
-                        }
-
-                        $start = Carbon::parse($tanggalTerima);
-                        $end = now();
-
-                        // Ambil hari libur nasional dari API
-                        try {
-                            $response = Http::withOptions(['verify' => false])
-                                ->get('https://api-harilibur.vercel.app/api');
-                            $holidays = collect($response->json())->pluck('holiday_date')->toArray();
-                        } catch (\Exception $e) {
-                            $holidays = [];
-                        }
-
-                        $networkDays = 0;
-                        $current = $start->copy();
-
-                        while ($current->lte($end)) {
-                            if (!$current->isWeekend() && !in_array($current->format('Y-m-d'), $holidays)) {
-                                $networkDays++;
-                            }
-                            $current->addDay();
-                        }
-
-                        return "{$networkDays} hari (Pending)";
+                        $days = static::hitungHariKerja($record->received_date, now());
+                        return "{$days} hari (Pending)";
                     })
-                    ->color(function ($state) {
-                        if (str_contains($state, 'Pending')) {
+                    ->color(function (string $state) {
+                        if (str_contains($state, 'Pending'))
                             return 'gray';
-                        }
-
-                        if ($state === 'Selesai') {
+                        if ($state === 'Selesai')
                             return 'success';
-                        }
-
                         $days = (int) filter_var($state, FILTER_SANITIZE_NUMBER_INT);
-
-                        return match (true) {
-                            $days <= 2 => 'warning',
-                            $days > 2 => 'danger',
-                            default => 'gray',
-                        };
+                        return $days <= 2 ? 'warning' : 'danger';
                     }),
-
 
                 TextColumn::make('lead_time_transmittal')
                     ->label('Leadtime QC')
                     ->icon('heroicon-s-clock')
-                    ->color(fn($state) => match (true) {
-                        str_contains($state, 'hari') && (int) filter_var($state, FILTER_SANITIZE_NUMBER_INT) <= 2 => 'success',
-                        str_contains($state, 'hari') && (int) filter_var($state, FILTER_SANITIZE_NUMBER_INT) <= 5 => 'warning',
-                        str_contains($state, 'hari') => 'danger',
-                        default => 'gray',
-                    })
                     ->alignCenter()
-                    ->getStateUsing(function ($record) {
-                        $tanggalKirim = optional($record->transmittalKirims)->first()?->tanggal_kirim;
-                        $tanggalKembali = optional($record->transmittalKirims)->first()?->transmittalKembaliDetails->first()?->transmittalKembali?->tanggal_kembali;
-
-                        if (!$tanggalKirim)
+                    ->state(function ($record) {
+                        if (!$record->tgl_kirim_qc)
                             return 'Belum dikirim';
-                        if (!$tanggalKembali)
+                        if (!$record->tgl_kembali_qc)
                             return 'Belum kembali';
-
-                        $start = Carbon::parse($tanggalKirim);
-                        $end = Carbon::parse($tanggalKembali);
-
-                        try {
-                            $response = Http::withOptions(['verify' => false])
-                                ->get('https://api-harilibur.vercel.app/api');
-                            $holidays = collect($response->json())->pluck('holiday_date')->toArray();
-                        } catch (\Exception $e) {
-                            $holidays = [];
-                        }
-
-                        $networkDays = 0;
-                        $current = $start->copy();
-                        while ($current->lte($end)) {
-                            if (!$current->isWeekend() && !in_array($current->format('Y-m-d'), $holidays)) {
-                                $networkDays++;
-                            }
-                            $current->addDay();
-                        }
-
-                        return "{$networkDays} hari";
+                        $days = static::hitungHariKerja($record->tgl_kirim_qc, $record->tgl_kembali_qc);
+                        return "{$days} hari";
                     })
-                    ->color(fn($state) => match (true) {
-                        str_contains($state, 'Belum') => 'danger',
-                        is_numeric(filter_var($state, FILTER_SANITIZE_NUMBER_INT)) && (int) filter_var($state, FILTER_SANITIZE_NUMBER_INT) <= 2 => 'success',
-                        is_numeric(filter_var($state, FILTER_SANITIZE_NUMBER_INT)) && (int) filter_var($state, FILTER_SANITIZE_NUMBER_INT) <= 5 => 'warning',
-                        is_numeric(filter_var($state, FILTER_SANITIZE_NUMBER_INT)) => 'success', // sudah selesai tapi lewat 5 hari
-                        default => 'gray',
+                    ->color(function (string $state) {
+                        if (str_contains($state, 'Belum'))
+                            return 'danger';
+                        $days = (int) filter_var($state, FILTER_SANITIZE_NUMBER_INT);
+                        return $days <= 2 ? 'success' : ($days <= 5 ? 'warning' : 'success');
                     }),
 
                 TextColumn::make('lead_time_completion')
                     ->label('Leadtime GRS/RDTV')
                     ->icon('heroicon-s-calendar-days')
                     ->alignCenter()
-                    ->getStateUsing(function ($record) {
-                        $tanggalTerima = $record->received_date;
-                        $tanggalGRS = collect($record->goodsReceiptSlips)->first()?->tanggal_terbit;
-                        $tanggalRDTV = collect($record->returnDeliveryToVendors)->first()?->tanggal_terbit;
-
-                        if (!$tanggalTerima) {
+                    ->state(function ($record) {
+                        if (!$record->received_date)
                             return 'Belum diterima';
-                        }
-
-                        if (!$tanggalGRS && !$tanggalRDTV) {
+                        if (!$record->tgl_grs && !$record->tgl_rdtv)
                             return 'Belum GRS/RDTV';
-                        }
-
-                        $endDate = $tanggalGRS ?? $tanggalRDTV;
-                        $start = Carbon::parse($tanggalTerima);
-                        $end = Carbon::parse($endDate);
-
-                        // Ambil hari libur nasional dari API
-                        try {
-                            $response = Http::withOptions(['verify' => false])
-                                ->get('https://api-harilibur.vercel.app/api');
-
-                            $holidays = collect($response->json())
-                                ->pluck('holiday_date')
-                                ->toArray();
-                        } catch (\Exception $e) {
-                            $holidays = [];
-                        }
-
-                        $networkDays = 0;
-                        $current = $start->copy();
-
-                        while ($current->lte($end)) {
-                            if (!$current->isWeekend() && !in_array($current->format('Y-m-d'), $holidays)) {
-                                $networkDays++;
-                            }
-
-                            $current->addDay();
-                        }
-
-                        return "{$networkDays} hari";
+                        $end = $record->tgl_grs ?? $record->tgl_rdtv;
+                        $days = static::hitungHariKerja($record->received_date, $end);
+                        return "{$days} hari";
                     })
-                    ->color(fn($state) => match (true) {
-                        str_contains($state, 'Belum') => 'danger',
-                        is_numeric(filter_var($state, FILTER_SANITIZE_NUMBER_INT)) && (int) filter_var($state, FILTER_SANITIZE_NUMBER_INT) <= 2 => 'success',
-                        is_numeric(filter_var($state, FILTER_SANITIZE_NUMBER_INT)) && (int) filter_var($state, FILTER_SANITIZE_NUMBER_INT) <= 5 => 'warning',
-                        is_numeric(filter_var($state, FILTER_SANITIZE_NUMBER_INT)) => 'success',
-                        default => 'gray',
+                    ->color(function (string $state) {
+                        if (str_contains($state, 'Belum'))
+                            return 'danger';
+                        $days = (int) filter_var($state, FILTER_SANITIZE_NUMBER_INT);
+                        return $days <= 2 ? 'success' : ($days <= 5 ? 'warning' : 'success');
                     }),
             ])
             ->recordAction('view')
@@ -368,17 +264,9 @@ class ItemMonitoring extends BaseWidget
                     ->trueLabel('Masih Proses')
                     ->falseLabel('Sudah Selesai')
                     ->queries(
-                        true: fn(Builder $query) =>
-                        $query->whereDoesntHave('goodsReceiptSlips')
-                            ->whereDoesntHave('returnDeliveryToVendors'),
-
-                        false: fn(Builder $query) =>
-                        $query->where(function ($query) {
-                            $query->whereHas('goodsReceiptSlips')
-                                ->orWhereHas('returnDeliveryToVendors');
-                        }),
-
-                        blank: fn(Builder $query) => $query
+                        true: fn(Builder $q) => $q->where('has_grs', 0)->where('has_rdtv', 0),
+                        false: fn(Builder $q) => $q->where(fn($qq) => $qq->where('has_grs', 1)->orWhere('has_rdtv', 1)),
+                        blank: fn(Builder $q) => $q
                     )
                     ->native(false),
 
@@ -388,9 +276,9 @@ class ItemMonitoring extends BaseWidget
                     ->trueLabel('Sudah')
                     ->falseLabel('Belum')
                     ->queries(
-                        true: fn(Builder $query) => $query->whereHas('transmittalKirims'),
-                        false: fn(Builder $query) => $query->whereDoesntHave('transmittalKirims'),
-                        blank: fn(Builder $query) => $query,
+                        true: fn(Builder $q) => $q->where('has_kirim', 1),
+                        false: fn(Builder $q) => $q->where('has_kirim', 0),
+                        blank: fn(Builder $q) => $q,
                     )
                     ->native(false),
 
@@ -400,9 +288,9 @@ class ItemMonitoring extends BaseWidget
                     ->trueLabel('Sudah')
                     ->falseLabel('Belum')
                     ->queries(
-                        true: fn(Builder $query) => $query->whereHas('goodsReceiptSlips'),
-                        false: fn(Builder $query) => $query->whereDoesntHave('goodsReceiptSlips'),
-                        blank: fn(Builder $query) => $query,
+                        true: fn(Builder $q) => $q->where('has_grs', 1),
+                        false: fn(Builder $q) => $q->where('has_grs', 0),
+                        blank: fn(Builder $q) => $q,
                     )
                     ->native(false),
 
@@ -412,40 +300,44 @@ class ItemMonitoring extends BaseWidget
                     ->trueLabel('Sudah')
                     ->falseLabel('Belum')
                     ->queries(
-                        true: fn(Builder $query) => $query->whereHas('returnDeliveryToVendors'),
-                        false: fn(Builder $query) => $query->whereDoesntHave('returnDeliveryToVendors'),
-                        blank: fn(Builder $query) => $query,
+                        true: fn(Builder $q) => $q->where('has_rdtv', 1),
+                        false: fn(Builder $q) => $q->where('has_rdtv', 0),
+                        blank: fn(Builder $q) => $q,
                     )
                     ->native(false),
             ], layout: FiltersLayout::AboveContent)
             ->filtersFormColumns(4)
-            ->filtersTriggerAction(
-                fn(Action $action) => $action
-                    ->button()
-                    ->label('Filter'),
-            )
+            ->filtersTriggerAction(fn(Action $a) => $a->button()->label('Filter'))
             ->actions([
                 Action::make('view')
                     ->label('Detail')
                     ->button()
                     ->color('gray')
                     ->icon('heroicon-m-eye')
+                    ->mountUsing(function (DeliveryOrderReceipt $record) {
+                        $record->loadMissing([
+                            'transmittalKirims.transmittalKembaliDetails.transmittalKembali:id,tanggal_kembali',
+                            'goodsReceiptSlips:id,delivery_order_receipt_id,tanggal_terbit',
+                            'goodsReceiptSlips.goodsReceiptSlipDetails:id,goods_receipt_slip_id,item_no,material_code,description',
+                            'returnDeliveryToVendors:id,delivery_order_receipt_id,tanggal_terbit',
+                            'returnDeliveryToVendors.returnDeliveryToVendorDetails:id,return_delivery_to_vendor_id,item_no,material_code,description',
+                        ]);
+                    })
                     ->infolist(fn(DeliveryOrderReceipt $record) => [
                         Section::make('Detail Dokumen')
                             ->description('Informasi dasar dokumen pengadaan.')
                             ->collapsed()
                             ->schema([
                                 Grid::make(3)->schema([
-                                    TextEntry::make('purchaseOrderTerbits.purchase_order_no')
-                                        ->label('No. PO'),
+                                    TextEntry::make('purchaseOrderTerbits.purchase_order_no')->label('No. PO'),
 
                                     TextEntry::make('nomor_do')
                                         ->label('No. DO')
-                                        ->getStateUsing(fn($record) => $record->nomor_do ?? '-'),
+                                        ->state(fn(DeliveryOrderReceipt $record) => $record->nomor_do ?? '-'),
 
                                     TextEntry::make('receivedBy.name')
                                         ->label('Diterima Oleh')
-                                        ->getStateUsing(fn($record) => $record->receivedBy->name ?? '-'),
+                                        ->state(fn(DeliveryOrderReceipt $record) => $record->receivedBy->name ?? '-'),
                                 ]),
                             ]),
 
@@ -458,41 +350,32 @@ class ItemMonitoring extends BaseWidget
                                         ->label('Tanggal Diterima')
                                         ->formatStateUsing(fn($state) => $state ? Carbon::parse($state)->translatedFormat('l, d F Y') : 'Belum diterima'),
 
-                                    TextEntry::make('transmittalKirims.0.tanggal_kirim')
+                                    TextEntry::make('tgl_kirim_qc')
                                         ->label('Tanggal Kirim QC')
-                                        ->formatStateUsing(fn($state) => $state ? Carbon::parse($state)->translatedFormat('l, d F Y') : 'Belum dikirim')
-                                        ->placeholder('Belum dikirim'),
+                                        ->formatStateUsing(fn($state) => $state ? Carbon::parse($state)->translatedFormat('l, d F Y') : 'Belum dikirim'),
 
-                                    TextEntry::make('transmittalKirims.0.transmittalKembaliDetails.0.transmittalKembali.tanggal_kembali')
+                                    TextEntry::make('tgl_kembali_qc')
                                         ->label('Tanggal Kembali QC')
-                                        ->formatStateUsing(fn($state) => $state ? Carbon::parse($state)->translatedFormat('l, d F Y') : 'Belum kembali')
-                                        ->placeholder('Belum kembali'),
+                                        ->formatStateUsing(fn($state) => $state ? Carbon::parse($state)->translatedFormat('l, d F Y') : 'Belum kembali'),
 
                                     TextEntry::make('tanggal_kirim_approval_vp')
                                         ->label('Tanggal Kirim Approval VP')
-                                        ->getStateUsing(function ($record) {
-                                            $tanggalKirim = \App\Models\ApprovalVpKirim::where('code', $record->do_code)
-                                                ->value('tanggal_kirim');
-
-                                            return $tanggalKirim
-                                                ? Carbon::parse($tanggalKirim)->translatedFormat('l, d F Y')
-                                                : 'Belum dikirim';
+                                        ->state(function (DeliveryOrderReceipt $record) {
+                                            $tgl = \App\Models\ApprovalVpKirim::where('code', $record->do_code)->value('tanggal_kirim');
+                                            return $tgl ? Carbon::parse($tgl)->translatedFormat('l, d F Y') : 'Belum dikirim';
                                         }),
 
                                     TextEntry::make('tanggal_kembali_approval_vp')
                                         ->label('Tanggal Kembali Approval VP')
-                                        ->getStateUsing(function ($record) {
-                                            $tanggalKembali = ApprovalVpKembali::query()
-                                                ->whereIn('id', function ($query) use ($record) {
-                                                    $query->select('approval_vp_kembali_id')
+                                        ->state(function (DeliveryOrderReceipt $record) {
+                                            $tgl = ApprovalVpKembali::query()
+                                                ->whereIn('id', function ($q) use ($record) {
+                                                    $q->select('approval_vp_kembali_id')
                                                         ->from('approval_vp_kembali_details')
                                                         ->where('code', $record->do_code);
                                                 })
                                                 ->value('tanggal_kembali');
-
-                                            return $tanggalKembali
-                                                ? Carbon::parse($tanggalKembali)->translatedFormat('l, d F Y')
-                                                : 'Belum dikirim';
+                                            return $tgl ? Carbon::parse($tgl)->translatedFormat('l, d F Y') : 'Belum dikirim';
                                         }),
                                 ]),
                             ]),
@@ -501,59 +384,45 @@ class ItemMonitoring extends BaseWidget
                             ->description('Detail durasi proses dokumen')
                             ->collapsed()
                             ->schema([
-                                Grid::make(4)
-                                    ->schema([
-                                        // Leadtime QC
-                                        TextEntry::make('lead_time_terima')
-                                            ->label('Status QC')
-                                            ->getStateUsing(function ($record) {
-                                                $start = $record->received_date;
-                                                $end = optional($record->transmittalKirims)->first()?->tanggal_kirim;
-                                                $result = static::hitungHariKerja($start, $end);
-                                                return is_numeric($result) ? "{$result} hari" : $result;
-                                            }),
+                                Grid::make(4)->schema([
+                                    TextEntry::make('lead_time_terima')
+                                        ->label('Status QC')
+                                        ->state(function (DeliveryOrderReceipt $record) {
+                                            $res = static::hitungHariKerja($record->received_date, $record->tgl_kirim_qc);
+                                            return is_numeric($res) ? "{$res} hari" : $res;
+                                        }),
 
-                                        // Leadtime Kirim QC - Kembali QC
-                                        TextEntry::make('lead_time_kirim_kembali')
-                                            ->label('Leadtime QC')
-                                            ->getStateUsing(function ($record) {
-                                                $start = optional($record->transmittalKirims)->first()?->tanggal_kirim;
-                                                $end = optional($record->transmittalKirims)->first()?->transmittalKembaliDetails->first()?->transmittalKembali?->tanggal_kembali;
-                                                $result = static::hitungHariKerja($start, $end);
-                                                return is_numeric($result) ? "{$result} hari" : $result;
-                                            }),
+                                    TextEntry::make('lead_time_kirim_kembali')
+                                        ->label('Leadtime QC')
+                                        ->state(function (DeliveryOrderReceipt $record) {
+                                            $res = static::hitungHariKerja($record->tgl_kirim_qc, $record->tgl_kembali_qc);
+                                            return is_numeric($res) ? "{$res} hari" : $res;
+                                        }),
 
-                                        // Leadtime Terima - GRS/RDTV
-                                        TextEntry::make('lead_time_completion')
-                                            ->label('Leadtime GRS/RDTV')
-                                            ->getStateUsing(function ($record) {
-                                                $start = $record->received_date;
-                                                $end = collect([
-                                                    $record->goodsReceiptSlips->first()?->tanggal_terbit,
-                                                    $record->returnDeliveryToVendors->first()?->tanggal_terbit
-                                                ])->filter()->sort()->first();
-                                                $result = static::hitungHariKerja($start, $end);
-                                                return is_numeric($result) ? "{$result} hari" : $result;
-                                            }),
+                                    TextEntry::make('lead_time_completion')
+                                        ->label('Leadtime GRS/RDTV')
+                                        ->state(function (DeliveryOrderReceipt $record) {
+                                            $end = collect([$record->tgl_grs, $record->tgl_rdtv])->filter()->sort()->first();
+                                            $res = static::hitungHariKerja($record->received_date, $end);
+                                            return is_numeric($res) ? "{$res} hari" : $res;
+                                        }),
 
-                                        // Leadtime GRS/RDTV - Approval VP Kirim
-                                        TextEntry::make('lead_time_vp')
-                                            ->label('Leadtime Approval VP')
-                                            ->getStateUsing(function ($record) {
-                                                // Ambil data Approval VP Kirim
-                                                $approvalVpKirim = \App\Models\ApprovalVpKirim::whereHas('approvalVpKembaliDetails', function ($q) use ($record) {
-                                                    $q->whereHas('approvalVpKembali', function () {});
-                                                })
-                                                    ->first();
+                                    TextEntry::make('lead_time_vp')
+                                        ->label('Leadtime Approval VP')
+                                        ->state(function (DeliveryOrderReceipt $record) {
+                                            $kirim = \App\Models\ApprovalVpKirim::whereHas(
+                                                'approvalVpKembaliDetails',
+                                                fn($q) => $q->whereHas('approvalVpKembali')
+                                            )->first();
 
-                                                $start = $approvalVpKirim?->tanggal_kirim;
-                                                $end = $approvalVpKirim?->approvalVpKembaliDetails->first()?->approvalVpKembali?->tanggal_kembali;
+                                            $res = static::hitungHariKerja(
+                                                $kirim?->tanggal_kirim,
+                                                $kirim?->approvalVpKembaliDetails->first()?->approvalVpKembali?->tanggal_kembali
+                                            );
 
-                                                $result = static::hitungHariKerja($start, $end);
-
-                                                return is_numeric($result) ? "{$result} hari" : $result;
-                                            }),
-                                    ])
+                                            return is_numeric($res) ? "{$res} hari" : $res;
+                                        }),
+                                ]),
                             ]),
 
                         Section::make('105 - Goods Receipt Slip (GRS)')
@@ -562,6 +431,7 @@ class ItemMonitoring extends BaseWidget
                             ->schema([
                                 RepeatableEntry::make('goodsReceiptSlips')
                                     ->label('')
+                                    ->state(fn(DeliveryOrderReceipt $record) => $record->goodsReceiptSlips)   // gunakan $record
                                     ->schema([
                                         TextEntry::make('tanggal_terbit')
                                             ->label('Tanggal Terbit GRS')
@@ -569,23 +439,21 @@ class ItemMonitoring extends BaseWidget
 
                                         RepeatableEntry::make('goodsReceiptSlipDetails')
                                             ->label('Item GRS')
-                                            ->getStateUsing(fn($record) => $record->goodsReceiptSlipDetails)
+                                            ->state(fn($record) => $record->goodsReceiptSlipDetails) // tetap gunakan $record (bukan $r)
                                             ->schema([
-                                                Grid::make(3)
-                                                    ->schema([
-                                                        TextEntry::make('item_no')->label('Item No'),
-                                                        TextEntry::make('material_code')->label('Material Code'),
-                                                        TextEntry::make('description')->label('Deskripsi')->limit(20),
-                                                    ]),
+                                                Grid::make(3)->schema([
+                                                    TextEntry::make('item_no')->label('Item No'),
+                                                    TextEntry::make('material_code')->label('Material Code'),
+                                                    TextEntry::make('description')->label('Deskripsi')->limit(20),
+                                                ]),
                                             ]),
                                     ])
-                                    ->getStateUsing(fn($record) => $record->goodsReceiptSlips)
-                                    ->hidden(fn($record) => $record->goodsReceiptSlips->isEmpty()),
+                                    ->hidden(fn(DeliveryOrderReceipt $record) => $record->goodsReceiptSlips->isEmpty()),
 
                                 TextEntry::make('')
                                     ->label('')
                                     ->default('Tidak ada item GRS')
-                                    ->visible(fn($record) => $record->goodsReceiptSlips->isEmpty())
+                                    ->visible(fn(DeliveryOrderReceipt $record) => $record->goodsReceiptSlips->isEmpty())
                                     ->color('danger'),
                             ]),
 
@@ -595,6 +463,7 @@ class ItemMonitoring extends BaseWidget
                             ->schema([
                                 RepeatableEntry::make('returnDeliveryToVendors')
                                     ->label('')
+                                    ->state(fn(DeliveryOrderReceipt $record) => $record->returnDeliveryToVendors)
                                     ->schema([
                                         TextEntry::make('tanggal_terbit')
                                             ->label('Tanggal Terbit RDTV')
@@ -602,56 +471,69 @@ class ItemMonitoring extends BaseWidget
 
                                         RepeatableEntry::make('returnDeliveryToVendorDetails')
                                             ->label('Item RDTV')
-                                            ->getStateUsing(fn($record) => $record->returnDeliveryToVendorDetails)
+                                            ->state(fn($record) => $record->returnDeliveryToVendorDetails)
                                             ->schema([
-                                                Grid::make(3)
-                                                    ->schema([
-                                                        TextEntry::make('item_no')->label('Item No'),
-                                                        TextEntry::make('material_code')->label('Material Code'),
-                                                        TextEntry::make('description')->label('Deskripsi')->limit(20),
-                                                    ])
+                                                Grid::make(3)->schema([
+                                                    TextEntry::make('item_no')->label('Item No'),
+                                                    TextEntry::make('material_code')->label('Material Code'),
+                                                    TextEntry::make('description')->label('Deskripsi')->limit(20),
+                                                ]),
                                             ]),
                                     ])
-                                    ->getStateUsing(fn($record) => $record->returnDeliveryToVendors)
-                                    ->hidden(fn($record) => $record->returnDeliveryToVendors->isEmpty()),
+                                    ->hidden(fn(DeliveryOrderReceipt $record) => $record->returnDeliveryToVendors->isEmpty()),
 
                                 TextEntry::make('')
                                     ->label('')
                                     ->default('Tidak ada item RDTV')
-                                    ->visible(fn($record) => $record->returnDeliveryToVendors->isEmpty())
+                                    ->visible(fn(DeliveryOrderReceipt $record) => $record->returnDeliveryToVendors->isEmpty())
                                     ->color('danger'),
                             ]),
-                    ])
+                    ]),
             ], position: ActionsPosition::AfterCells);
+    }
+
+    protected static function getHolidays(): array
+    {
+        if (static::$cachedHolidays !== null) {
+            return static::$cachedHolidays;
+        }
+
+        $year = now()->year;
+        $key = "holidays:id:$year";
+
+        static::$cachedHolidays = Cache::remember($key, now()->endOfYear()->diffInSeconds(), function () {
+            try {
+                $res = Http::withOptions(['verify' => false])->timeout(4)->get('https://api-harilibur.vercel.app/api');
+                return collect($res->json())->pluck('holiday_date')->toArray();
+            } catch (\Throwable $e) {
+                return [];
+            }
+        });
+
+        return static::$cachedHolidays;
     }
 
     protected static function hitungHariKerja($start, $end): string|int
     {
-        if (!$start || !$end) {
+        if (!$start || !$end)
             return 'Tidak Ada';
-        }
 
-        try {
-            $response = Http::withOptions(['verify' => false])
-                ->get('https://api-harilibur.vercel.app/api');
-            $holidays = collect($response->json())->pluck('holiday_date')->toArray();
-        } catch (\Exception $e) {
-            $holidays = [];
-        }
+        $start = Carbon::parse($start)->startOfDay();
+        $end = Carbon::parse($end)->startOfDay();
+        if ($end->lt($start))
+            return 0;
 
-        $start = Carbon::parse($start);
-        $end = Carbon::parse($end);
+        $holidays = static::getHolidays();
 
-        $networkDays = 0;
-        $current = $start->copy();
-
-        while ($current->lte($end)) {
-            if (!$current->isWeekend() && !in_array($current->format('Y-m-d'), $holidays)) {
-                $networkDays++;
+        $days = 0;
+        $cursor = $start->copy();
+        while ($cursor->lte($end)) {
+            if (!$cursor->isWeekend() && !in_array($cursor->format('Y-m-d'), $holidays, true)) {
+                $days++;
             }
-            $current->addDay();
+            $cursor->addDay();
         }
 
-        return $networkDays;
+        return $days;
     }
 }

@@ -9,4 +9,9 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateTransmittalGudangKirim extends CreateRecord
 {
     protected static string $resource = TransmittalGudangKirimResource::class;
+    protected static bool $canCreateAnother = false;
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('create');
+    }
 }

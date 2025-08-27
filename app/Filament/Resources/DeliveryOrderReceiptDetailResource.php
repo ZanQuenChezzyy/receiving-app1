@@ -99,7 +99,7 @@ class DeliveryOrderReceiptDetailResource extends Resource
                 TextColumn::make('item_no')
                     ->label('Item')
                     ->sortable()
-                    ->placeholder('None')
+                    ->placeholder('Tidak Ada')
                     ->prefix('Item ')
                     ->width('80px') // atur lebar biar kompak
                     ->color('primary'),
@@ -108,7 +108,7 @@ class DeliveryOrderReceiptDetailResource extends Resource
                     ->label('Kode Material')
                     ->sortable()
                     ->width('80px') // atur lebar biar kompak
-                    ->placeholder('None')
+                    ->placeholder('Tidak Ada')
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('description')
@@ -117,11 +117,11 @@ class DeliveryOrderReceiptDetailResource extends Resource
                     ->limit(20)
                     ->tooltip(fn($record) => $record->description ?: 'Tidak ada deskripsi')
                     ->width('80px') // atur lebar biar kompak
-                    ->placeholder('None'),
+                    ->placeholder('Tidak Ada'),
 
                 TextColumn::make('quantity')
                     ->label('Qty')
-                    ->placeholder('None')
+                    ->placeholder('Tidak Ada')
                     ->suffix(fn($record) => ' ' . ($record->uoi ?? ''))
                     ->alignLeft()
                     ->badge()

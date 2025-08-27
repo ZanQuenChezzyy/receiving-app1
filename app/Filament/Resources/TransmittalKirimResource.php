@@ -71,7 +71,7 @@ class TransmittalKirimResource extends Resource
                                     ->prefixIcon('heroicon-o-qr-code')
                                     ->autofocus()
                                     ->live()
-                                    ->unique()
+                                    ->unique(ignoreRecord: true)
                                     ->required()
                                     ->afterStateUpdated(function ($state, callable $set) {
                                         $receipt = DeliveryOrderReceipt::with('deliveryOrderReceiptDetails.locations')
@@ -182,6 +182,16 @@ class TransmittalKirimResource extends Resource
                     ->date('l, d F Y')
                     ->color('gray')
                     ->sortable(),
+
+                TextColumn::make('code')
+                    ->label('Kode Dokumen')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('code_103')
+                    ->label('Kode 103')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('deliveryOrderReceipts.purchaseOrderTerbits.purchase_order_no')
                     ->label('Nomor PO & Kode 103')

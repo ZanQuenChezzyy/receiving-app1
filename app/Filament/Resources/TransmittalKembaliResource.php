@@ -27,6 +27,8 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Tables\Actions\ActionGroup;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Filters\Filter;
 
 class TransmittalKembaliResource extends Resource
 {
@@ -250,8 +252,33 @@ class TransmittalKembaliResource extends Resource
                     ->icon('heroicon-o-arrow-path'),
             ])
             ->filters([
-                //
-            ])
+                Filter::make('cari')
+                    ->form([
+                        TextInput::make('q')
+                            ->label('Pencarian')
+                            ->placeholder('Cari Kode Dokumen / Kode 103 / No. PO'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $term = trim($data['q'] ?? '');
+                        if ($term === '') {
+                            return $query;
+                        }
+
+                        return $query->where(function (Builder $q) use ($term) {
+                            // code atau code_103 di TransmittalKembaliDetail
+                            $q->whereHas('transmittalKembaliDetails', function (Builder $d) use ($term) {
+                                $d->where('code', 'like', "%{$term}%")
+                                    ->orWhere('code_103', 'like', "%{$term}%");
+                            })
+                                // purchase_order_no di PurchaseOrderTerbit (via detail -> deliveryOrderReceipts -> purchaseOrderTerbits)
+                                ->orWhereHas('transmittalKembaliDetails.deliveryOrderReceipts.purchaseOrderTerbits', function (Builder $p) use ($term) {
+                                $p->where('purchase_order_no', 'like', "%{$term}%");
+                            });
+                        });
+                    })
+                    ->indicateUsing(fn(array $data) => ($data['q'] ?? null) ? ['Cari: ' . $data['q']] : null),
+            ], layout: FiltersLayout::AboveContent)
+            ->filtersFormColumns(2)
             ->actions([
                 ActionGroup::make([
                     Tables\Actions\ViewAction::make(),

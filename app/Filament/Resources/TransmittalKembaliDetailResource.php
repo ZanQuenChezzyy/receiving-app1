@@ -65,19 +65,34 @@ class TransmittalKembaliDetailResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            // Tunda fetch sampai tabel terlihat & batasi per halaman
+            ->deferLoading()
+            ->paginated([10, 25, 50, 100])
+            ->defaultPaginationPageOption(25)
+
+            // Eager load relasi + pilih kolom minimal agar anti N+1
             ->modifyQueryUsing(function (Builder $query) {
-                return $query->latest(); // urutkan berdasarkan created_at DESC
+                return $query
+                    ->with([
+                        'transmittalKirim:id,delivery_order_receipt_id,tanggal_kirim',
+                        'transmittalKembali:id,tanggal_kembali',
+                        'transmittalKirim.deliveryOrderReceipts:id,purchase_order_terbit_id,nomor_do',
+                        'transmittalKirim.deliveryOrderReceipts.purchaseOrderTerbits:id,purchase_order_no',
+                    ])
+                    ->latest(); // created_at desc
             })
+
             ->columns([
+                // TAMPIL
                 TextColumn::make('transmittalKirim.deliveryOrderReceipts.purchaseOrderTerbits.purchase_order_no')
                     ->label('Nomor PO')
                     ->icon('heroicon-s-document-text')
                     ->color('primary')
-                    ->searchable()
+                    ->searchable() // ikut global search
                     ->sortable()
                     ->description(fn($record) => 'Kode 103: ' . ($record->code_103 ?? '-')),
 
-                Tables\Columns\TextColumn::make('total_item')
+                TextColumn::make('total_item')
                     ->label('Total Item')
                     ->numeric()
                     ->sortable()
@@ -85,81 +100,122 @@ class TransmittalKembaliDetailResource extends Resource
                     ->suffix(' Item')
                     ->icon('heroicon-s-cube'),
 
-                Tables\Columns\TextColumn::make('transmittalKirim.tanggal_kirim')
+                TextColumn::make('transmittalKirim.tanggal_kirim')
                     ->label('Tanggal Kirim')
                     ->dateTime('l, d F Y')
                     ->sortable()
                     ->color('gray'),
 
-                Tables\Columns\TextColumn::make('transmittalKembali.tanggal_kembali')
+                TextColumn::make('transmittalKembali.tanggal_kembali')
                     ->label('Tanggal Kembali')
                     ->dateTime('l, d F Y')
                     ->sortable()
                     ->color('gray'),
 
-                Tables\Columns\TextColumn::make('lead_time')
+                TextColumn::make('lead_time')
                     ->label('Lead Time (hari)')
                     ->icon('heroicon-s-clock')
                     ->color('warning')
                     ->sortable()
-                    ->getStateUsing(function ($record) {
+                    ->state(function ($record) {
                         $start = optional($record->transmittalKirim)->tanggal_kirim;
                         $end = optional($record->transmittalKembali)->tanggal_kembali;
-
                         if (!$start || !$end)
                             return '-';
 
-                        $start = Carbon::parse($start);
-                        $end = Carbon::parse($end);
-
-                        // Ambil daftar hari libur dari API
-                        $response = Http::withOptions([
-                            'verify' => false, // ini menonaktifkan verifikasi SSL
-                        ])->get('https://api-harilibur.vercel.app/api');
-                        $holidays = collect($response->json())->pluck('holiday_date')->toArray();
-
-                        $networkDays = 0;
-                        $current = $start->copy();
-
-                        while ($current->lte($end)) {
-                            $isWeekend = $current->isWeekend(); // Sabtu/Minggu
-                            $isHoliday = in_array($current->format('Y-m-d'), $holidays);
-
-                            if (!$isWeekend && !$isHoliday) {
-                                $networkDays++;
-                            }
-
-                            $current->addDay();
-                        }
-
-                        return "{$networkDays} hari";
+                        $days = static::hitungHariKerja($start, $end); // ⬅️ pakai helper cached
+                        return "{$days} hari";
                     }),
 
-                Tables\Columns\TextColumn::make('created_at')
+                TextColumn::make('created_at')
                     ->label('Dibuat')
                     ->dateTime('d M Y H:i')
                     ->sortable()
                     ->icon('heroicon-m-calendar-days')
                     ->toggleable(isToggledHiddenByDefault: true),
 
-                Tables\Columns\TextColumn::make('updated_at')
+                TextColumn::make('updated_at')
                     ->label('Diperbarui')
                     ->dateTime('d M Y H:i')
                     ->sortable()
                     ->icon('heroicon-o-arrow-path')
                     ->toggleable(isToggledHiddenByDefault: true),
+
+                // SEARCH-ONLY (disembunyikan)
+                TextColumn::make('code')
+                    ->label('Code')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('code_103')
+                    ->label('Code 103')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('transmittalKirim.deliveryOrderReceipts.nomor_do')
+                    ->label('No. DO')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
+
             ->filters([
-                //
+                // (opsional) tambahkan filter kalau perlu, biar query makin ringan saat difilter
             ])
+
             ->actions([
-                //
+                // …
             ])
+
             ->bulkActions([
-                // Tables\Actions\BulkActionGroup::make([
-                //     Tables\Actions\DeleteBulkAction::make(),
-                // ]),
+                // …
             ]);
+    }
+
+    /**
+     * Cache hari libur nasional per proses (dan per tahun via Cache) supaya tidak HTTP call per-row.
+     */
+    protected static ?array $cachedHolidays = null;
+
+    protected static function getHolidays(): array
+    {
+        if (static::$cachedHolidays !== null) {
+            return static::$cachedHolidays;
+        }
+
+        try {
+            // cache sampai akhir tahun (gunakan Cache facade kalau mau persist ke storage)
+            $res = Http::withOptions(['verify' => false])->timeout(4)->get('https://api-harilibur.vercel.app/api');
+            static::$cachedHolidays = collect($res->json())
+                ->pluck('holiday_date')
+                ->toArray();
+        } catch (\Throwable $e) {
+            static::$cachedHolidays = [];
+        }
+
+        return static::$cachedHolidays;
+    }
+
+    protected static function hitungHariKerja($start, $end): int
+    {
+        $start = Carbon::parse($start)->startOfDay();
+        $end = Carbon::parse($end)->startOfDay();
+
+        if ($end->lt($start)) {
+            return 0;
+        }
+
+        $holidays = static::getHolidays();
+
+        $days = 0;
+        $cur = $start->copy();
+        while ($cur->lte($end)) {
+            if (!$cur->isWeekend() && !in_array($cur->format('Y-m-d'), $holidays, true)) {
+                $days++;
+            }
+            $cur->addDay();
+        }
+
+        return $days;
     }
 
     public static function getRelations(): array

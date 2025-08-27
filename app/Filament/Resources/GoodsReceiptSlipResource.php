@@ -181,7 +181,8 @@ class GoodsReceiptSlipResource extends Resource
                     ->label('Tanggal Terbit')
                     ->date('l, d F Y')
                     ->color('gray')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('deliveryOrderReceipts.purchaseOrderTerbits.purchase_order_no')
                     ->label('Nomor PO & Kode 105')

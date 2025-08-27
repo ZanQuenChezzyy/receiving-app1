@@ -78,7 +78,7 @@ class TransmittalKembaliResource extends Resource
                     ]),
 
                 Section::make('Daftar Transmittal Kembali')
-                    ->description('Scan QR Code Transmittal untuk mengisi data pengembalian secara otomatis.')
+                    ->description('Scan QR Code Dokumen untuk mengisi data pengembalian secara otomatis.')
                     ->icon('heroicon-o-list-bullet')
                     ->schema([
                         Repeater::make('transmittalKembaliDetails')
@@ -90,10 +90,34 @@ class TransmittalKembaliResource extends Resource
                                         ->label('Scan QR Code')
                                         ->placeholder('Scan QR Dokumen')
                                         ->autofocus()
-                                        ->live()
+                                        ->live(debounce: 300)
                                         ->required()
                                         ->unique(ignoreRecord: true)
+                                        ->rule(fn() => function (string $attribute, $value, Closure $fail) {
+                                            $v = trim((string) $value);
+                                            if ($v !== '' && preg_match('/^\d{14}$/', $v)) {
+                                                $fail('Yang dipindai harus QR Dokumen (bukan Code 103 14 digit). Silakan scan QR Dokumen.');
+                                            }
+                                        })
                                         ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                                            // Jika 14 digit (kemungkinan Code 103), beri pesan dini & jangan lanjut query
+                                            if ($state && preg_match('/^\d{14}$/', $state)) {
+                                                Notification::make()
+                                                    ->title('Code 103 terdeteksi')
+                                                    ->body('Silakan scan QR Dokumen (bukan Code 103).')
+                                                    ->danger()
+                                                    ->send();
+
+                                                // kosongkan field terkait agar tidak misleading
+                                                $set('code_103', null);
+                                                $set('total_item', null);
+                                                $set('tanggal_kirim', null);
+                                                $set('transmittal_kirim_id', null);
+                                                $set('delivery_order_receipt_id', null);
+                                                return;
+                                            }
+
+                                            // --- logika kamu sebelumnya tetap ---
                                             $transmittal = TransmittalKirim::where('code', $state)->first();
 
                                             if (!$transmittal) {
@@ -110,7 +134,6 @@ class TransmittalKembaliResource extends Resource
                                                 return;
                                             }
 
-                                            // Set field dalam item
                                             $tanggal = $transmittal->tanggal_kirim;
                                             if (!($tanggal instanceof \Carbon\Carbon)) {
                                                 $tanggal = \Illuminate\Support\Carbon::parse($tanggal);
@@ -134,7 +157,6 @@ class TransmittalKembaliResource extends Resource
                                                     'transmittal_kirim_id' => null,
                                                     'delivery_order_receipt_id' => null,
                                                 ];
-
                                                 $set('../../transmittalKembaliDetails', $details);
                                             }
                                         }),
@@ -168,28 +190,6 @@ class TransmittalKembaliResource extends Resource
                             ])
                             ->addActionLabel('Tambah Daftar')
                             ->columnSpanFull()
-                            ->addAction(
-                                fn(Action $action) => $action
-                                    ->label('Tambah Daftar 5')
-                                    ->icon('heroicon-o-plus')
-                                    ->action(function (callable $get, callable $set) {
-                                        $state = $get('transmittalKembaliDetails') ?? [];
-
-                                        for ($i = 0; $i < 5; $i++) {
-                                            $state[] = [
-                                                'code' => '',
-                                                'code_103' => '',
-                                                'tanggal_kirim' => '',
-                                                'total_item' => '',
-                                                'transmittal_kirim_id' => null,
-                                                'delivery_order_receipt_id' => null,
-                                            ];
-                                        }
-
-                                        $set('transmittalKembaliDetails', $state);
-                                    })
-                            )
-                            ->addActionAlignment(Alignment::End)
                             ->defaultItems(2),
                     ]),
             ]);

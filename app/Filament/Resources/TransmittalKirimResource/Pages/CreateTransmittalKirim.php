@@ -12,6 +12,6 @@ class CreateTransmittalKirim extends CreateRecord
     protected static bool $canCreateAnother = false;
     protected function getRedirectUrl(): string
     {
-        return $this->getResource()::getUrl('create');
+        return static::getResource()::getUrl('create', ['focus' => 1]);
     }
 }

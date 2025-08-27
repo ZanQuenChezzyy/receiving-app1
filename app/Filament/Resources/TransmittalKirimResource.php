@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use Closure;
 use App\Filament\Clusters\TransmittalIstek;
 use App\Filament\Resources\TransmittalKirimResource\Pages;
 use App\Filament\Resources\TransmittalKirimResource\RelationManagers;
@@ -15,6 +16,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Actions\ActionGroup;
@@ -25,6 +27,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class TransmittalKirimResource extends Resource
 {
@@ -70,10 +73,34 @@ class TransmittalKirimResource extends Resource
                                     ->placeholder('Contoh: 5000001269086PLJ072514072025')
                                     ->prefixIcon('heroicon-o-qr-code')
                                     ->autofocus()
-                                    ->live()
+                                    ->live(debounce: 300)
                                     ->unique(ignoreRecord: true)
+                                    ->minLength(15)
                                     ->required()
+                                    // VALIDASI: cegah 14 digit murni (itu Code 103)
+                                    ->rule(fn() => function (string $attribute, $value, Closure $fail) {
+                                        $v = trim((string) $value);
+                                        if ($v !== '' && preg_match('/^\d{14}$/', $v)) {
+                                            $fail('Sepertinya Anda mengisi Code 103 di kolom "Kode Dokumen". Silakan pindahkan ke kolom "Kode 103".');
+                                        }
+                                    })
+                                    // UX: jika ternyata yang di-scan 14 digit (Code 103), auto-pindah
                                     ->afterStateUpdated(function ($state, callable $set) {
+                                        $code = trim((string) $state);
+                                        if ($code !== '' && preg_match('/^\d{14}$/', $code)) {
+                                            $set('code_103', $code);
+                                            $set('code', null);
+
+                                            Notification::make()
+                                                ->title('Dipindahkan ke "Kode 103"')
+                                                ->body('Input terdeteksi 14 digit (Code 103). Kami memindahkannya otomatis.')
+                                                ->info()
+                                                ->send();
+
+                                            return; // hentikan proses tarik DO
+                                        }
+
+                                        // --- logika kamu sebelumnya tetap ---
                                         $receipt = DeliveryOrderReceipt::with('deliveryOrderReceiptDetails.locations')
                                             ->where('do_code', $state)
                                             ->first();
@@ -99,14 +126,71 @@ class TransmittalKirimResource extends Resource
                                             $set('delivery_order_receipt_id', null);
                                             $set('items', []);
                                         }
-                                    }),
+                                    })
+                                    ->extraAttributes([
+                                        'x-ref' => 'codeInput',
+                                        'x-init' => 'if (new URLSearchParams(window.location.search).get("focus")) { $nextTick(() => { ($el.tagName==="INPUT"?$el:$el.querySelector("input"))?.focus() }) }',
+                                    ]),
 
                                 TextInput::make('code_103')
                                     ->label('Kode 103 (Scan QR)')
                                     ->placeholder('Contoh: 5006550097')
                                     ->prefixIcon('heroicon-o-qr-code')
-                                    ->autofocus()
-                                    ->required(),
+                                    ->live(debounce: 300)
+                                    ->minLength(14)
+                                    ->maxLength(14)
+                                    ->required()
+                                    ->rule(fn() => function (string $attribute, $value, Closure $fail) {
+                                        $v = trim((string) $value);
+                                        if ($v === '')
+                                            return;
+
+                                        // wajib 14 digit
+                                        if (!preg_match('/^\d{14}$/', $v)) {
+                                            if (preg_match('/[A-Za-z]/', $v) || strlen($v) > 14) {
+                                                $fail('Sepertinya Anda mengisi "Kode Dokumen" di kolom "Kode 103". Silakan pindahkan ke kolom "Kode Dokumen (Scan QR)".');
+                                            } else {
+                                                $fail('Format Kode 103 harus 14 digit angka.');
+                                            }
+                                            return;
+                                        }
+
+                                        // NEW: tolak jika 14 digit ini adalah prefix dari do_code yang lebih panjang (terindikasi Kode Dokumen terpotong)
+                                        $looksLikeDoPrefix = DB::table('delivery_order_receipts')
+                                            ->where('do_code', 'like', $v . '%')
+                                            ->whereRaw('CHAR_LENGTH(do_code) > 14')
+                                            ->exists();
+
+                                        if ($looksLikeDoPrefix) {
+                                            $fail('Nilai ini terdeteksi sebagai potongan Kode Dokumen (DO). Silakan scan QR DO pada kolom "Kode Dokumen", bukan di "Kode 103".');
+                                        }
+                                    })
+                                    ->afterStateUpdated(function ($state, callable $set) {
+                                        $v = trim((string) $state);
+
+                                        // Hanya cek saat sudah 14 digit
+                                        if ($v !== '' && preg_match('/^\d{14}$/', $v)) {
+                                            // NEW: deteksi prefix DO di sisi UX (langsung beri tahu & kosongkan)
+                                            $looksLikeDoPrefix = DB::table('delivery_order_receipts')
+                                                ->where('do_code', 'like', $v . '%')
+                                                ->whereRaw('CHAR_LENGTH(do_code) > 14')
+                                                ->exists();
+
+                                            if ($looksLikeDoPrefix) {
+                                                $set('code_103', null);
+
+                                                Notification::make()
+                                                    ->title('Yang di-scan adalah Kode Dokumen (terpotong)')
+                                                    ->body('Silakan scan QR DO pada kolom "Kode Dokumen (Scan QR)".')
+                                                    ->danger()
+                                                    ->send();
+
+                                                return; // stop proses lanjut
+                                            }
+                                        }
+
+                                        // (kalau perlu lanjut logic lain untuk code_103…)
+                                    }),
 
                                 Hidden::make('delivery_order_receipt_id')->required(),
                                 Hidden::make('created_by')->default(Auth::user()->id),

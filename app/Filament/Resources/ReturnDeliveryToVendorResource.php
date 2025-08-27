@@ -15,6 +15,7 @@ use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Actions\ActionGroup;
@@ -26,6 +27,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class ReturnDeliveryToVendorResource extends Resource
 {
@@ -72,10 +74,37 @@ class ReturnDeliveryToVendorResource extends Resource
                                 ->prefixIcon('heroicon-o-qr-code')
                                 ->required()
                                 ->autoFocus()
+                                ->minLength(15)
                                 ->unique(ignoreRecord: true)
-                                ->live()
+                                ->live(debounce: 300)
+                                // Tolak 14 digit murni (itu kode 124/105)
+                                ->rule(fn() => function (string $attribute, $value, \Closure $fail) {
+                                    $v = trim((string) $value);
+                                    if ($v !== '' && preg_match('/^\d{14}$/', $v)) {
+                                        $fail('Sepertinya Anda mengisi Kode 124 di kolom "Kode Dokumen". Silakan pindahkan ke kolom "Kode 124".');
+                                    }
+                                })
                                 ->afterStateUpdated(function ($state, callable $set) {
-                                    $do = \App\Models\DeliveryOrderReceipt::with('deliveryOrderReceiptDetails')->where('do_code', $state)->first();
+                                    $code = trim((string) $state);
+
+                                    // Jika 14 digit → pindahkan ke code_124 + notifikasi
+                                    if ($code !== '' && preg_match('/^\d{14}$/', $code)) {
+                                        $set('code_124', $code);
+                                        $set('code', null);
+
+                                        Notification::make()
+                                            ->title('Dipindahkan ke "Kode 124"')
+                                            ->body('Input terdeteksi 14 digit (Kode 124). Kami memindahkannya otomatis.')
+                                            ->info()
+                                            ->send();
+
+                                        return;
+                                    }
+
+                                    // --- logic tarik DO (tetap seperti semula) ---
+                                    $do = \App\Models\DeliveryOrderReceipt::with('deliveryOrderReceiptDetails')
+                                        ->where('do_code', $state)
+                                        ->first();
 
                                     if (!$do) {
                                         $set('returnDeliveryToVendorDetails', []);
@@ -85,36 +114,30 @@ class ReturnDeliveryToVendorResource extends Resource
 
                                     $set('delivery_order_receipt_id', $do->id);
 
-                                    // Ambil semua item yang sudah pernah di-GRS berdasarkan DO ini
                                     $grsDetails = \App\Models\GoodsReceiptSlipDetail::whereHas('goodsReceiptSlip', function ($q) use ($do) {
                                         $q->where('delivery_order_receipt_id', $do->id);
                                     })->get();
 
-                                    // Hitung total qty GRS per item_no
-                                    $grsGrouped = $grsDetails->groupBy('item_no')->map(function ($items) {
-                                        return $items->sum('quantity');
-                                    });
+                                    $grsGrouped = $grsDetails->groupBy('item_no')->map(fn($items) => $items->sum('quantity'));
 
-                                    // Buat list item sisa
                                     $details = $do->deliveryOrderReceiptDetails->map(function ($item) use ($grsGrouped) {
                                         $qtyInDO = $item->quantity;
                                         $qtyInGRS = $grsGrouped[$item->item_no] ?? 0;
                                         $sisaQty = $qtyInDO - $qtyInGRS;
 
-                                        if ($sisaQty <= 0) {
-                                            return null; // skip kalau tidak ada sisa
-                                        }
+                                        if ($sisaQty <= 0)
+                                            return null;
 
                                         return [
-                                            'delivery_order_receipt_detail_id' => $item->id, // ✅ tambahkan ini
+                                            'delivery_order_receipt_detail_id' => $item->id,
                                             'item_no' => $item->item_no,
                                             'material_code' => $item->material_code,
                                             'description' => $item->description,
                                             'quantity' => $sisaQty,
                                             'uoi' => $item->uoi,
                                         ];
-                                    })->filter()->values(); // filter null, reset index
-                        
+                                    })->filter()->values();
+
                                     $set('returnDeliveryToVendorDetails', $details->toArray());
                                 }),
 
@@ -122,7 +145,89 @@ class ReturnDeliveryToVendorResource extends Resource
                                 ->label('Kode 124')
                                 ->placeholder('Contoh: 5006550097')
                                 ->prefixIcon('heroicon-o-qr-code')
-                                ->required(),
+                                ->live(debounce: 300)
+                                ->minLength(14)
+                                ->maxLength(14)
+                                ->unique(ignoreRecord: true)
+                                ->required()
+                                // Wajib 14 digit & tolak prefix DO terpotong
+                                ->rule(fn() => function (string $attribute, $value, \Closure $fail) {
+                                    $v = trim((string) $value);
+                                    if ($v === '')
+                                        return;
+
+                                    if (!preg_match('/^\d{14}$/', $v)) {
+                                        if (preg_match('/[A-Za-z]/', $v) || strlen($v) > 14) {
+                                            $fail('Sepertinya Anda mengisi "Kode Dokumen" di kolom "Kode 124". Silakan pindahkan ke "Kode Dokumen (Scan QR)".');
+                                        } else {
+                                            $fail('Format Kode 124 harus 14 digit angka.');
+                                        }
+                                        return;
+                                    }
+
+                                    $isDoPrefix = DB::table('delivery_order_receipts')
+                                        ->where('do_code', 'like', $v . '%')
+                                        ->whereRaw('CHAR_LENGTH(do_code) > 14')
+                                        ->exists();
+
+                                    if ($isDoPrefix) {
+                                        $fail('Nilai ini terdeteksi sebagai potongan Kode Dokumen (DO). Scan QR DO pada kolom "Kode Dokumen", bukan di "Kode 124".');
+                                    }
+                                })
+                                ->afterStateUpdated(function ($state, callable $set) {
+                                    $v = trim((string) $state);
+                                    if ($v === '')
+                                        return;
+
+                                    if (preg_match('/^\d{14}$/', $v)) {
+                                        $is103 = DB::table('transmittal_kirims')
+                                            ->where('code_103', $v)
+                                            ->exists();
+
+                                        if ($is103) {
+                                            $set('code_124', null);
+                                            Notification::make()
+                                                ->title('Bukan Kode 124')
+                                                ->body('Nilai ini terdeteksi sebagai Kode 103 (QC).')
+                                                ->danger()
+                                                ->send();
+                                            return;
+                                        }
+
+                                        $isDoPrefix = DB::table('delivery_order_receipts')
+                                            ->where('do_code', 'like', $v . '%')
+                                            ->whereRaw('CHAR_LENGTH(do_code) > 14')
+                                            ->exists();
+
+                                        if ($isDoPrefix) {
+                                            $set('code_124', null);
+                                            Notification::make()
+                                                ->title('Kode Dokumen ter-scan di kolom 124')
+                                                ->body('Nilai 14 digit ini adalah potongan Kode Dokumen (DO). Scan di kolom "Kode Dokumen".')
+                                                ->danger()
+                                                ->send();
+                                        }
+                                        return;
+                                    }
+
+                                    if (strlen($v) >= 15 || preg_match('/[A-Za-z]/', $v)) {
+                                        $set('code', $v);
+                                        $set('code_124', null);
+
+                                        Notification::make()
+                                            ->title('Dipindahkan ke "Kode Dokumen"')
+                                            ->body('Input terdeteksi sebagai Kode Dokumen (bukan 14 digit).')
+                                            ->info()
+                                            ->send();
+                                        return;
+                                    }
+
+                                    Notification::make()
+                                        ->title('Lengkapi 14 digit')
+                                        ->body('Kode 124 harus tepat 14 digit angka.')
+                                        ->warning()
+                                        ->send();
+                                }),
 
                             Hidden::make('delivery_order_receipt_id')->required(),
                             Hidden::make('created_by')->default(Auth::user()->id),

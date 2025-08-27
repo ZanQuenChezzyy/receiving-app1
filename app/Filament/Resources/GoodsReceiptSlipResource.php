@@ -18,6 +18,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Actions\ActionGroup;
@@ -30,6 +31,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class GoodsReceiptSlipResource extends Resource
 {
@@ -80,10 +82,36 @@ class GoodsReceiptSlipResource extends Resource
                                     ->placeholder('Contoh: 5000001269086PLJ072514072025')
                                     ->prefixIcon('heroicon-o-qr-code')
                                     ->autofocus()
-                                    ->live()
+                                    ->live(debounce: 300)
                                     ->required()
                                     ->unique(ignoreRecord: true)
+                                    ->minLength(15)
+                                    // Tolak 14 digit murni (itu kode 105/124)
+                                    ->rule(fn() => function (string $attribute, $value, \Closure $fail) {
+                                        $v = trim((string) $value);
+                                        if ($v !== '' && preg_match('/^\d{14}$/', $v)) {
+                                            $fail('Sepertinya Anda mengisi Kode 105 di kolom "Kode Dokumen". Silakan pindahkan ke kolom "Kode 105".');
+                                        }
+                                    })
                                     ->afterStateUpdated(function ($state, callable $set) {
+                                        $code = trim((string) $state);
+
+                                        // 1) Jika 14 digit → pindah ke code_105 + fokus balik ke code
+                                        if ($code !== '' && preg_match('/^\d{14}$/', $code)) {
+                                            $set('code_105', $code);
+                                            $set('code', null);
+                                            $set('focus_code', true); // trigger re-focus
+                            
+                                            Notification::make()
+                                                ->title('Dipindahkan ke "Kode 105"')
+                                                ->body('Input terdeteksi 14 digit (Kode 105). Kami memindahkannya otomatis.')
+                                                ->info()
+                                                ->send();
+
+                                            return;
+                                        }
+
+                                        // --- logic tarik DO (tetap) ---
                                         $deliveryOrder = DeliveryOrderReceipt::with('deliveryOrderReceiptDetails')
                                             ->where('do_code', $state)
                                             ->first();
@@ -100,7 +128,7 @@ class GoodsReceiptSlipResource extends Resource
                                             return [
                                                 'item_no' => $item->item_no,
                                                 'delivery_order_receipt_id' => $item->delivery_order_receipt_id,
-                                                'delivery_order_receipt_detail_id' => $item->id, // ✅ tambahkan ini
+                                                'delivery_order_receipt_detail_id' => $item->id,
                                                 'material_code' => $item->material_code,
                                                 'description' => $item->description,
                                                 'quantity' => $item->quantity,
@@ -109,13 +137,115 @@ class GoodsReceiptSlipResource extends Resource
                                         });
 
                                         $set('goodsReceiptSlipDetails', $details->toArray());
-                                    }),
+                                    })
+                                    // Alpine hook untuk re-focus saat focus_code = true
+                                    ->extraAttributes([
+                                        'x-data' => '{}',
+                                        'x-effect' => "if (\$wire.get('data.focus_code')) { \$nextTick(()=>{ (\$el.tagName==='INPUT'?\$el:\$el.querySelector('input'))?.focus() }); \$wire.set('data.focus_code', false) }",
+                                    ]),
 
                                 TextInput::make('code_105')
                                     ->label('Kode 105')
                                     ->placeholder('Contoh: 5006550097')
                                     ->prefixIcon('heroicon-o-qr-code')
-                                    ->required(),
+                                    ->live(debounce: 300)
+                                    ->minLength(14)
+                                    ->maxLength(14)
+                                    ->unique(ignoreRecord: true)
+                                    ->required()
+                                    ->rule(fn() => function (string $attribute, $value, \Closure $fail) {
+                                        $v = trim((string) $value);
+                                        if ($v === '')
+                                            return;
+
+                                        // wajib 14 digit
+                                        if (!preg_match('/^\d{14}$/', $v)) {
+                                            if (preg_match('/[A-Za-z]/', $v) || strlen($v) > 14) {
+                                                $fail('Sepertinya Anda mengisi "Kode Dokumen" di kolom "Kode 105". Silakan pindahkan ke "Kode Dokumen (Scan QR)".');
+                                            } else {
+                                                $fail('Format Kode 105 harus 14 digit angka.');
+                                            }
+                                            return;
+                                        }
+
+                                        // (2) Tolak bila ini sebenarnya Kode 103
+                                        $is103 = DB::table('transmittal_kirims')->where('code_103', $v)->exists();
+                                        if ($is103) {
+                                            $fail('Nilai ini adalah Kode 103 (QC), bukan Kode 105.');
+                                            return;
+                                        }
+
+                                        // (3) Tolak bila 14 digit ini adalah prefix dari DO (berarti DO terpotong)
+                                        $isDoPrefix = DB::table('delivery_order_receipts')
+                                            ->where('do_code', 'like', $v . '%')
+                                            ->whereRaw('CHAR_LENGTH(do_code) > 14')
+                                            ->exists();
+
+                                        if ($isDoPrefix) {
+                                            $fail('Nilai ini terdeteksi sebagai potongan Kode Dokumen (DO). Scan QR DO pada kolom "Kode Dokumen", bukan di "Kode 105".');
+                                        }
+                                    })
+                                    ->afterStateUpdated(function ($state, callable $set) {
+                                        $v = trim((string) $state);
+                                        if ($v === '')
+                                            return;
+
+                                        // CASE A: pas 14 digit → kandidat 105, lakukan pengecekan lanjutan
+                                        if (preg_match('/^\d{14}$/', $v)) {
+                                            // Tolak jika ini sebenarnya Code 103
+                                            $is103 = DB::table('transmittal_kirims')
+                                                ->where('code_103', $v)
+                                                ->exists();
+
+                                            if ($is103) {
+                                                $set('code_105', null);
+                                                Notification::make()
+                                                    ->title('Bukan Kode 105')
+                                                    ->body('Nilai ini terdeteksi sebagai Kode 103 (QC).')
+                                                    ->danger()
+                                                    ->send();
+                                                return;
+                                            }
+
+                                            // Tolak jika ini prefix dari DO (kode dokumen terpotong)
+                                            $isDoPrefix = DB::table('delivery_order_receipts')
+                                                ->where('do_code', 'like', $v . '%')
+                                                ->whereRaw('CHAR_LENGTH(do_code) > 14')
+                                                ->exists();
+
+                                            if ($isDoPrefix) {
+                                                $set('code_105', null);
+                                                Notification::make()
+                                                    ->title('Kode Dokumen ter-scan di kolom 105')
+                                                    ->body('Nilai 14 digit ini adalah potongan Kode Dokumen (DO). Scan di kolom "Kode Dokumen".')
+                                                    ->danger()
+                                                    ->send();
+                                            }
+
+                                            return; // valid 14 digit (dan bukan 103/prefix DO) → biarkan tetap sebagai 105
+                                        }
+
+                                        // CASE B: bukan 14 digit
+                                        // - Jika panjang >= 15 ATAU mengandung huruf → kemungkinan DO → pindahkan ke kolom DO
+                                        if (strlen($v) >= 15 || preg_match('/[A-Za-z]/', $v)) {
+                                            $set('code', $v);
+                                            $set('code_105', null);
+
+                                            Notification::make()
+                                                ->title('Dipindahkan ke "Kode Dokumen"')
+                                                ->body('Input terdeteksi sebagai Kode Dokumen (bukan 14 digit).')
+                                                ->info()
+                                                ->send();
+                                            return;
+                                        }
+
+                                        // - Jika hanya angka dan < 14 digit → JANGAN dianggap DO, biarkan user melengkapi 14 digit
+                                        Notification::make()
+                                            ->title('Lengkapi 14 digit')
+                                            ->body('Kode 105 harus tepat 14 digit angka.')
+                                            ->warning()
+                                            ->send();
+                                    }),
 
                                 Hidden::make('delivery_order_receipt_id')->required(),
                                 Hidden::make('created_by')->default(Auth::user()->id),
@@ -156,7 +286,6 @@ class GoodsReceiptSlipResource extends Resource
                     ]),
             ]);
     }
-
 
     public static function table(Table $table): Table
     {

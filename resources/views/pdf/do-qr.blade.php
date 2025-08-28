@@ -26,15 +26,76 @@
 
         table {
             font-size: 10px;
-            width: auto;
             font-family: Helvetica;
             font-weight: bold;
             color: black;
+            line-height: 1.1;
         }
 
         td {
             padding: 2px;
+            vertical-align: top;
         }
+
+        /* Stabilkan layout & beri ruang lebih ke kolom nilai */
+        .label-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .label-table .lbl {
+            width: 22%;
+        }
+
+        /* semula 26% → kasih ruang ke nilai */
+        .label-table .col {
+            width: 3%;
+            text-align: center;
+        }
+
+        .label-table .val {
+            width: auto;
+            white-space: normal;
+            word-break: normal;
+            overflow-wrap: break-word;
+        }
+
+        .label-table .qr {
+            width: 40px;
+            text-align: center;
+            padding-left: 4px;
+        }
+
+        /* semula 52px */
+
+        /* Nilai penting jangan dipecah karakter per karakter */
+        .no-wrap {
+            white-space: nowrap;
+            word-break: normal;
+            overflow-wrap: normal;
+        }
+
+        /* PO No lebih besar */
+        .po-large {
+            font-size: 14px;
+            letter-spacing: .2px;
+        }
+
+        /* QR lebih kecil lagi supaya tidak “nyenggol” nilai */
+        .qr-mini {
+            width: 34px;
+            height: 34px;
+            object-fit: contain;
+        }
+
+        .desc-oneline {
+            white-space: nowrap;
+            font-size: 9.5px;
+            letter-spacing: .1px;
+        }
+
+        /* semula 42x42 */
     </style>
 </head>
 
@@ -42,84 +103,103 @@
     {{-- Halaman per item --}}
     @foreach ($items as $item)
         @php
-            $itemNo = explode(' ', $item['label'])[1];
+            $itemNo = explode(' ', $item['label'])[1] ?? null;
             $detail = $do->deliveryOrderReceiptDetails->firstWhere('item_no', $itemNo);
-            $description = isset($detail->description) ? \Illuminate\Support\Str::limit($detail->description, 20) : '-';
+
             $poNo = optional($do->purchaseOrderTerbits)->purchase_order_no ?? '-';
-            $receivedBy = \Illuminate\Support\Str::limit(optional($do->receivedBy)->name ?? '-', 7);
-            $tanggal = \Carbon\Carbon::parse($do->received_date)->format('d/m/Y');
+            $material = $detail->material_code ?? '-';
+            $receivedBy = optional($do->receivedBy)->name ?? '-';
+            $qtyReceived = $detail ? $detail->quantity . ' ' . $detail->uoi : '-';
+
+            // Lokasi (tetap boleh wrap)
             $locationRaw = $detail?->is_different_location
                 ? optional($detail->locations)->name ?? 'Lokasi Beda (Tidak diketahui)'
                 : optional($do->locations)->name ?? 'Lokasi Utama (Tidak diketahui)';
-            $location = \Illuminate\Support\Str::limit($locationRaw, 20);
+            $location = $locationRaw;
+
+            // ==== FIX: bersihkan newline agar tidak break di tengah ====
+            $rawDesc = (string) ($detail->description ?? '-');
+            $descFlat = preg_replace('/\s+/u', ' ', str_replace(["\r\n", "\n", "\r", "\t"], ' ', $rawDesc));
+            $desc25 = mb_substr($descFlat, 0, 25);
+            // 2) Escape HTML lalu ubah spasi ke &nbsp; supaya TIDAK wrap
+            $descOneLine = str_replace(' ', '&nbsp;', e($desc25));
         @endphp
 
         <div class="page">
-            <table
-                style="width: 100%; border-collapse: collapse; font-size: 10px; font-family: Helvetica; font-weight: bold; color: black;">
+            <table class="label-table">
+                <colgroup>
+                    <col class="lbl">
+                    <col class="col">
+                    <col class="val">
+                    <col class="qr">
+                </colgroup>
+
                 <tr>
-                    <td colspan="3" style="text-align: left; text-decoration: underline; padding-bottom: 2px;">
+                    <td colspan="3" style="text-align:left; text-decoration:underline; padding-bottom:2px;">
                         LABEL MATERIAL - DO RECEIPT
                     </td>
-                    <td style="text-align: right;">
+                    <td style="text-align:right;">
                         <img src="{{ $logo }}" style="height: 15px;">
                     </td>
                 </tr>
+
                 <tr>
                     <td>PO No</td>
-                    <td style="text-align: center;">:</td>
-                    <td>{{ $poNo }}</td>
-                    <td rowspan="7" style="text-align: center;">
-                        <img src="{{ $item['qr'] }}" style="width: 90px; height: 90px;">
+                    <td class="col">:</td>
+                    <td class="val po-large no-wrap">{{ $poNo }}</td>
+                    <td class="qr" rowspan="8">
+                        <img src="{{ $item['qr'] }}" class="qr-mini">
                     </td>
-                </tr>
-                <tr>
-                    <td>DO No</td>
-                    <td style="text-align: center;">:</td>
-                    <td>{{ $do->nomor_do }}</td>
-                </tr>
-                <tr>
-                    <td style="width: 40%;">Tgl Terima</td>
-                    <td style="text-align: center;">:</td>
-                    <td>{{ $tanggal }}</td>
-                </tr>
-                <tr>
-                    <td>Item No</td>
-                    <td style="text-align: center;">:</td>
-                    <td>{{ $detail->item_no ?? '-' }}</td>
-                </tr>
-                <tr>
-                    <td>Material Code</td>
-                    <td style="text-align: center;">:</td>
-                    <td>{{ $detail->material_code ?? '-' }}</td>
-                </tr>
-                <tr>
-                    <td>Qty Diterima</td>
-                    <td style="text-align: center;">:</td>
-                    <td>
-                        {{ $detail ? $detail->quantity . ' ' . $detail->uoi : '-' }}
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan="1" style="padding-top: 2px;">Diterima Oleh</td>
-                    <td style="text-align: center;">:</td>
-                    <td>{{ $receivedBy }}</td>
-                </tr>
-                <tr>
-                    <td colspan="1" style="padding-top: 2px;">Deskripsi</td>
-                    <td style="text-align: center;">:</td>
-                    <td colspan="5">{{ $description }}</td>
-                </tr>
-                <tr>
-                    <td colspan="1" style="padding-top: 2px;">Lokasi</td>
-                    <td style="text-align: center;">:</td>
-                    <td colspan="5">{{ $location }}</td>
-                    <td></td>
                 </tr>
 
+                <tr>
+                    <td>Item No</td>
+                    <td class="col">:</td>
+                    <td class="val no-wrap">{{ $detail->item_no ?? '-' }}</td>
+                </tr>
+
+                <tr>
+                    <td>Lokasi</td>
+                    <td class="col">:</td>
+                    <td class="val">{{ $location }}</td>
+                </tr>
+
+                <tr>
+                    <td>Material Code</td>
+                    <td class="col">:</td>
+                    <td class="val no-wrap">{{ $material }}</td>
+                </tr>
+
+                {{-- DESKRIPSI: sudah dibersihkan dari newline, boleh wrap penuh sampai tepi kanan --}}
+                <tr>
+                    <td>Deskripsi</td>
+                    <td class="col">:</td>
+                    <td class="val no-wrap">
+                        <span class="desc-oneline">{!! $descOneLine !!}</span>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td>Qty Diterima</td>
+                    <td class="col">:</td>
+                    <td class="val no-wrap">{{ $qtyReceived }}</td>
+                </tr>
+
+                <tr>
+                    <td>Diterima Oleh</td>
+                    <td class="col">:</td>
+                    <td class="val no-wrap">{{ $receivedBy }}</td>
+                </tr>
+
+                <tr>
+                    <td>DO No</td>
+                    <td class="col">:</td>
+                    <td class="val no-wrap">{{ $do->nomor_do }}</td>
+                </tr>
             </table>
         </div>
     @endforeach
+
 
 
     {{-- Halaman 1: QR utama DO --}}

@@ -16,6 +16,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Actions\Action;
@@ -30,6 +31,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 
@@ -377,6 +379,7 @@ class DeliveryOrderReceiptResource extends Resource
                     ->label('Tanggal Terima')
                     ->date('l, d F Y')
                     ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->color('gray'),
 
                 Tables\Columns\TextColumn::make('deliveryOrderReceiptDetails.item_no')
@@ -426,6 +429,14 @@ class DeliveryOrderReceiptResource extends Resource
                     ->limit(15)
                     ->searchable(),
 
+                Tables\Columns\TextColumn::make('post_103')
+                    ->label('Tanggal Post 103')
+                    ->placeholder('Belum Posting 103')
+                    ->dateTime()
+                    ->sortable()
+                    ->color('gray')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 Tables\Columns\TextColumn::make('createdBy.name')
                     ->label('Dibuat Oleh')
                     ->color('primary')
@@ -434,6 +445,7 @@ class DeliveryOrderReceiptResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('tahapan')
                     ->label('Tahapan')
+                    ->placeholder('Tidak Ada')
                     ->numeric()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -450,13 +462,63 @@ class DeliveryOrderReceiptResource extends Resource
                 //
             ])
             ->actions([
-                Action::make('Cetak')
-                    ->label('Cetak')
-                    ->url(fn($record) => route('do-receipt.print-qr', $record->id))
-                    ->icon('heroicon-o-printer')
-                    ->color('gray')
+                Action::make('Post103')
+                    ->label('POST 103')
+                    ->icon('heroicon-o-check')
+                    ->color('success')
+                    ->outlined()
                     ->button()
-                    ->openUrlInNewTab(),
+                    ->requiresConfirmation() // modal konfirmasi
+                    ->modalHeading('Konfirmasi POST 103')
+                    ->modalDescription('Tindakan ini akan mencatat tanggal & waktu POST 103 pada dokumen ini.')
+                    ->visible(function () {
+                        $user = Auth::user();
+                        return $user && $user->hasRole(['Developer', 'Super Admin', 'Admin']);
+                    })
+                    // Sembunyikan apabila sudah pernah di-post
+                    ->hidden(fn(DeliveryOrderReceipt $record) => filled($record->post_103))
+                    // Optional: disable kalau sudah berisi (backup guard)
+                    ->disabled(fn(DeliveryOrderReceipt $record) => filled($record->post_103))
+                    ->action(function (DeliveryOrderReceipt $record) {
+                        // Double-guard: jika sudah terisi, jangan eksekusi
+                        if (filled($record->post_103)) {
+                            Notification::make()
+                                ->title('Sudah dipost')
+                                ->body('Dokumen ini sudah memiliki waktu POST 103.')
+                                ->warning()
+                                ->send();
+
+                            return;
+                        }
+
+                        DB::transaction(function () use ($record) {
+                            $record->update(['post_103' => now()]);
+                        });
+
+                        Notification::make()
+                            ->title('Berhasil')
+                            ->body('Tanggal & waktu POST 103 telah dicatat.')
+                            ->success()
+                            ->send();
+                    }),
+                ActionGroup::make([
+                    Action::make('Cetak')
+                        ->label('Label Material')
+                        ->url(fn($record) => route('do-receipt.print-qr', $record->id))
+                        ->icon('heroicon-o-printer')
+                        ->color('gray')
+                        ->openUrlInNewTab(),
+                    Action::make('CetakKodeDokumen')
+                        ->label('Kode Dokumen')
+                        ->url(fn($record) => route('do-receipt.print-qr-code-only', $record->id))
+                        ->icon('heroicon-o-qr-code')
+                        ->color('gray')
+                        ->openUrlInNewTab(),
+                ])
+                    ->label('Cetak')
+                    ->button()
+                    ->icon('heroicon-o-printer')
+                    ->color('gray'),
                 ActionGroup::make([
                     EditAction::make()
                         ->color('info')
@@ -482,6 +544,16 @@ class DeliveryOrderReceiptResource extends Resource
                     ->color('gray')
                     ->deselectRecordsAfterCompletion()
                     ->openUrlInNewTab(),
+                BulkAction::make('cetak_kode_dokumen')
+                    ->label('Cetak Kode Dokumen (Dipilih)')
+                    ->icon('heroicon-o-qr-code')
+                    ->color('gray')
+                    ->deselectRecordsAfterCompletion()
+                    ->openUrlInNewTab()
+                    ->action(function (Collection $records) {
+                        $ids = $records->pluck('id')->toArray();
+                        return redirect()->route('qr.bulk.print-code-only', ['ids' => implode(',', $ids)]);
+                    }),
             ]);
     }
 

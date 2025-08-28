@@ -15,3 +15,4 @@ class CreateTransmittalKirim extends CreateRecord
         return static::getResource()::getUrl('create', ['focus' => 1]);
     }
 }
+

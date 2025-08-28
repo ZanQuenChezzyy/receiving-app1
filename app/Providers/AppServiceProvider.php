@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Filament\Pages\Auth\EditProfile;
 use App\Filament\Pages\Dashboard;
+use App\Filament\Resources\ApprovalVpKembaliDetailResource;
 use App\Filament\Resources\DeliveryOrderReceiptDetailResource;
 use App\Filament\Resources\DeliveryOrderReceiptResource;
 use App\Filament\Resources\GoodsReceiptSlipDetailResource;
@@ -18,6 +19,15 @@ use App\Filament\Resources\TransmittalKembaliDetailResource;
 use App\Filament\Resources\TransmittalKembaliResource;
 use App\Filament\Resources\TransmittalKirimResource;
 use App\Filament\Resources\UserResource;
+use App\Models\ApprovalVpKembali;
+use App\Models\ApprovalVpKirim;
+use App\Models\MaterialIssuedRequest;
+use App\Models\MaterialIssuedRequestDetail;
+use App\Models\TransmittalGudangKirim;
+use App\Models\TransmittalGudangKirimDetail;
+use App\Models\TransmittalGudangTerima;
+use App\Models\TransmittalGudangTerimaDetail;
+use App\Models\WarehouseLocation;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Support\Facades\Blade;
@@ -66,17 +76,27 @@ class AppServiceProvider extends ServiceProvider
                 UserResource::class,
                 RoleResource::class,
                 PermissionResource::class,
+                ApprovalVpKembaliDetailResource::class,
+                ApprovalVpKembali::class,
+                ApprovalVpKirim::class,
                 DeliveryOrderReceiptDetailResource::class,
                 DeliveryOrderReceiptResource::class,
                 GoodsReceiptSlipDetailResource::class,
                 GoodsReceiptSlipResource::class,
                 LocationResource::class,
+                MaterialIssuedRequestDetail::class,
+                MaterialIssuedRequest::class,
                 PurchaseOrderTerbitResource::class,
                 ReturnDeliveryToVendorDetailResource::class,
                 ReturnDeliveryToVendorResource::class,
+                TransmittalGudangKirimDetail::class,
+                TransmittalGudangKirim::class,
+                TransmittalGudangTerimaDetail::class,
+                TransmittalGudangTerima::class,
                 TransmittalKembaliDetailResource::class,
                 TransmittalKembaliResource::class,
                 TransmittalKirimResource::class,
+                WarehouseLocation::class,
             ]
         );
     }

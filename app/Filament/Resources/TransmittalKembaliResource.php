@@ -29,6 +29,7 @@ use Filament\Forms\Components\Actions\Action;
 use Filament\Tables\Actions\ActionGroup;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
 
 class TransmittalKembaliResource extends Resource
 {
@@ -277,6 +278,13 @@ class TransmittalKembaliResource extends Resource
                         });
                     })
                     ->indicateUsing(fn(array $data) => ($data['q'] ?? null) ? ['Cari: ' . $data['q']] : null),
+                SelectFilter::make('created_by')
+                    ->label('Dibuat Oleh')
+                    ->relationship('createdBy', 'name')   // otomatis where('created_by', <id>)
+                    ->searchable()
+                    ->preload()
+                    ->native(false)
+                    ->default(fn() => Auth::user()?->hasRole('Admin') ? Auth::id() : null),
             ], layout: FiltersLayout::AboveContent)
             ->filtersFormColumns(2)
             ->actions([

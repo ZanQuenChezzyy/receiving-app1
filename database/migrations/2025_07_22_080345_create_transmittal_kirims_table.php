@@ -14,6 +14,7 @@ return new class extends Migration {
             $table->id();
             $table->string('code', 50);
             $table->string('code_103', 15);
+            $table->string('qc_destination', 10)->nullable();
             $table->foreignId('delivery_order_receipt_id')->constrained('delivery_order_receipts')->cascadeOnDelete();
             $table->date('tanggal_kirim');
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();

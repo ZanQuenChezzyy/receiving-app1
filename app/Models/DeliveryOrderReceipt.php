@@ -19,6 +19,7 @@ class DeliveryOrderReceipt extends Model
         'created_by',
         'tahapan',
         'do_code',
+        'post_103',
     ];
 
     protected static function booted()

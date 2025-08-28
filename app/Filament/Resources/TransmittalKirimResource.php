@@ -8,25 +8,32 @@ use App\Filament\Resources\TransmittalKirimResource\Pages;
 use App\Filament\Resources\TransmittalKirimResource\RelationManagers;
 use App\Models\DeliveryOrderReceipt;
 use App\Models\TransmittalKirim;
+use Closure;
 use Filament\Forms;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Actions\ActionGroup;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\DB;
 
 class TransmittalKirimResource extends Resource
@@ -57,7 +64,7 @@ class TransmittalKirimResource extends Resource
                     ->icon('heroicon-o-qr-code')
                     ->description('Scan kode QR dari Delivery Order untuk menarik data otomatis.')
                     ->schema([
-                        Grid::make(3)
+                        Grid::make(7)
                             ->schema([
                                 DatePicker::make('tanggal_kirim')
                                     ->label('Tanggal Kirim')
@@ -67,65 +74,130 @@ class TransmittalKirimResource extends Resource
                                     ->prefixIcon('heroicon-m-calendar-days')
                                     ->placeholder('Pilih Tanggal Kirim')
                                     ->default(now())
+                                    ->columnSpan(2)
                                     ->required(),
+
+
+                                Select::make('qc_destination')
+                                    ->label('Tujuan QC')
+                                    ->placeholder('Pilih')
+                                    ->options([
+                                        'ISTEK' => 'ISTEK',
+                                        'PPE' => 'PPE',
+                                    ])
+                                    ->required()
+                                    ->native(false)
+                                    ->columnSpan(1)
+                                    ->afterStateHydrated(function (callable $set, $state, ?TransmittalKirim $record) {
+                                        // Kalau edit & sudah ada nilai di DB → biarkan apa adanya
+                                        if (filled($state))
+                                            return;
+
+                                        // Ambil riwayat terakhir qc_destination milik user ini
+                                        $last = TransmittalKirim::query()
+                                            ->where('created_by', Auth::id())
+                                            ->whereNotNull('qc_destination')
+                                            ->latest('id')
+                                            ->value('qc_destination');
+
+                                        if ($last) {
+                                            $set('qc_destination', $last);
+                                        }
+                                    }),
+
                                 TextInput::make('code')
                                     ->label('Kode Dokumen (Scan QR)')
                                     ->placeholder('Contoh: 5000001269086PLJ072514072025')
                                     ->prefixIcon('heroicon-o-qr-code')
                                     ->autofocus()
                                     ->live(debounce: 300)
-                                    ->unique(ignoreRecord: true)
                                     ->minLength(15)
+                                    ->unique(ignoreRecord: true)
+                                    ->columnSpan(2)
                                     ->required()
-                                    // VALIDASI: cegah 14 digit murni (itu Code 103)
+                                    // validator form-level tetap dipertahankan
                                     ->rule(fn() => function (string $attribute, $value, Closure $fail) {
                                         $v = trim((string) $value);
                                         if ($v !== '' && preg_match('/^\d{14}$/', $v)) {
                                             $fail('Sepertinya Anda mengisi Code 103 di kolom "Kode Dokumen". Silakan pindahkan ke kolom "Kode 103".');
                                         }
                                     })
-                                    // UX: jika ternyata yang di-scan 14 digit (Code 103), auto-pindah
-                                    ->afterStateUpdated(function ($state, callable $set) {
-                                        $code = trim((string) $state);
-                                        if ($code !== '' && preg_match('/^\d{14}$/', $code)) {
-                                            $set('code_103', $code);
+                                    ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                                        $v = trim((string) $state);
+
+                                        // Kosong → reset dependensi
+                                        if ($v === '') {
+                                            $set('delivery_order_receipt_id', null);
+                                            $set('items', []);
+                                            return;
+                                        }
+
+                                        // Jika 14 digit → sebenarnya Kode 103, pindahkan ke kolom code_103
+                                        if (preg_match('/^\d{14}$/', $v)) {
                                             $set('code', null);
+                                            $set('code_103', $v);
 
                                             Notification::make()
                                                 ->title('Dipindahkan ke "Kode 103"')
-                                                ->body('Input terdeteksi 14 digit (Code 103). Kami memindahkannya otomatis.')
+                                                ->body('Input terdeteksi 14 digit (Kode 103). Kami pindahkan ke kolom "Kode 103".')
                                                 ->info()
                                                 ->send();
 
-                                            return; // hentikan proses tarik DO
-                                        }
-
-                                        // --- logika kamu sebelumnya tetap ---
-                                        $receipt = DeliveryOrderReceipt::with('deliveryOrderReceiptDetails.locations')
-                                            ->where('do_code', $state)
-                                            ->first();
-
-                                        if ($receipt) {
-                                            $set('delivery_order_receipt_id', $receipt->id);
-
-                                            $items = $receipt->deliveryOrderReceiptDetails->map(function ($item) use ($receipt) {
-                                                return [
-                                                    'item_no' => $item->item_no,
-                                                    'description' => $item->description,
-                                                    'material_code' => $item->material_code ?? 'None',
-                                                    'quantity' => $item->quantity,
-                                                    'uoi' => $item->uoi,
-                                                    'location' => $item->is_different_location
-                                                        ? ($item->locations?->name ?? 'Lokasi Beda (Tidak diketahui)')
-                                                        : ($receipt->locations?->name ?? 'Lokasi Utama (Tidak diketahui)'),
-                                                ];
-                                            })->toArray();
-
-                                            $set('items', $items);
-                                        } else {
+                                            // karena ini bukan Kode Dokumen, jangan query DO
                                             $set('delivery_order_receipt_id', null);
                                             $set('items', []);
+                                            return;
                                         }
+
+                                        // Minimal 15 karakter untuk Kode Dokumen (hindari query sia-sia)
+                                        if (mb_strlen($v) < 15) {
+                                            Notification::make()
+                                                ->title('Kode Dokumen terlalu pendek')
+                                                ->body('Minimal 15 karakter. Jika 14 digit murni, itu Kode 103 dan harus diisi di kolom "Kode 103".')
+                                                ->warning()
+                                                ->send();
+
+                                            // Tidak perlu reset "code" agar user bisa lanjut mengetik
+                                            $set('delivery_order_receipt_id', null);
+                                            $set('items', []);
+                                            return;
+                                        }
+
+                                        // Lookup DO berdasarkan do_code
+                                        $receipt = DeliveryOrderReceipt::with('deliveryOrderReceiptDetails.locations', 'locations')
+                                            ->where('do_code', $v)
+                                            ->first();
+
+                                        if (!$receipt) {
+                                            // Tidak ditemukan → kasih notifikasi dan reset field dependent
+                                            Notification::make()
+                                                ->title('Kode Dokumen tidak ditemukan')
+                                                ->body('Pastikan Anda men-scan QR DO yang benar atau periksa kembali input Anda.')
+                                                ->danger()
+                                                ->send();
+
+                                            $set('delivery_order_receipt_id', null);
+                                            $set('items', []);
+                                            return;
+                                        }
+
+                                        // Ditemukan → set relasi & items
+                                        $set('delivery_order_receipt_id', $receipt->id);
+
+                                        $items = $receipt->deliveryOrderReceiptDetails->map(function ($item) use ($receipt) {
+                                            return [
+                                                'item_no' => $item->item_no,
+                                                'description' => $item->description,
+                                                'material_code' => $item->material_code ?? 'None',
+                                                'quantity' => $item->quantity,
+                                                'uoi' => $item->uoi,
+                                                'location' => $item->is_different_location
+                                                    ? ($item->locations?->name ?? 'Lokasi Beda (Tidak diketahui)')
+                                                    : ($receipt->locations?->name ?? 'Lokasi Utama (Tidak diketahui)'),
+                                            ];
+                                        })->toArray();
+
+                                        $set('items', $items);
                                     })
                                     ->extraAttributes([
                                         'x-ref' => 'codeInput',
@@ -134,62 +206,49 @@ class TransmittalKirimResource extends Resource
 
                                 TextInput::make('code_103')
                                     ->label('Kode 103 (Scan QR)')
-                                    ->placeholder('Contoh: 5006550097')
+                                    ->placeholder('Contoh: 50065500972025') // 14 digit
                                     ->prefixIcon('heroicon-o-qr-code')
-                                    ->live(debounce: 300)
+                                    ->autofocus()
                                     ->minLength(14)
                                     ->maxLength(14)
+                                    ->columnSpan(2)
                                     ->required()
-                                    ->rule(fn() => function (string $attribute, $value, Closure $fail) {
-                                        $v = trim((string) $value);
-                                        if ($v === '')
-                                            return;
+                                    ->afterStateUpdated(function ($state, callable $set) {
+                                        $v = trim((string) $state);
 
-                                        // wajib 14 digit
-                                        if (!preg_match('/^\d{14}$/', $v)) {
-                                            if (preg_match('/[A-Za-z]/', $v) || strlen($v) > 14) {
-                                                $fail('Sepertinya Anda mengisi "Kode Dokumen" di kolom "Kode 103". Silakan pindahkan ke kolom "Kode Dokumen (Scan QR)".');
-                                            } else {
-                                                $fail('Format Kode 103 harus 14 digit angka.');
-                                            }
+                                        if ($v === '') {
                                             return;
                                         }
 
-                                        // NEW: tolak jika 14 digit ini adalah prefix dari do_code yang lebih panjang (terindikasi Kode Dokumen terpotong)
+                                        // Validasi format 14 digit
+                                        if (!preg_match('/^\d{14}$/', $v)) {
+                                            Notification::make()
+                                                ->title('Format Kode 103 tidak valid')
+                                                ->body('Kode 103 harus 14 digit angka.')
+                                                ->warning()
+                                                ->send();
+                                            return;
+                                        }
+
+                                        // Deteksi jika yang discan sebenarnya Kode Dokumen (DO) terpotong jadi 14 char
                                         $looksLikeDoPrefix = DB::table('delivery_order_receipts')
                                             ->where('do_code', 'like', $v . '%')
                                             ->whereRaw('CHAR_LENGTH(do_code) > 14')
                                             ->exists();
 
                                         if ($looksLikeDoPrefix) {
-                                            $fail('Nilai ini terdeteksi sebagai potongan Kode Dokumen (DO). Silakan scan QR DO pada kolom "Kode Dokumen", bukan di "Kode 103".');
-                                        }
-                                    })
-                                    ->afterStateUpdated(function ($state, callable $set) {
-                                        $v = trim((string) $state);
+                                            $set('code_103', null);
 
-                                        // Hanya cek saat sudah 14 digit
-                                        if ($v !== '' && preg_match('/^\d{14}$/', $v)) {
-                                            // NEW: deteksi prefix DO di sisi UX (langsung beri tahu & kosongkan)
-                                            $looksLikeDoPrefix = DB::table('delivery_order_receipts')
-                                                ->where('do_code', 'like', $v . '%')
-                                                ->whereRaw('CHAR_LENGTH(do_code) > 14')
-                                                ->exists();
+                                            Notification::make()
+                                                ->title('Yang di-scan adalah Kode Dokumen (terpotong)')
+                                                ->body('Silakan scan QR DO pada kolom "Kode Dokumen (Scan QR)".')
+                                                ->danger()
+                                                ->send();
 
-                                            if ($looksLikeDoPrefix) {
-                                                $set('code_103', null);
-
-                                                Notification::make()
-                                                    ->title('Yang di-scan adalah Kode Dokumen (terpotong)')
-                                                    ->body('Silakan scan QR DO pada kolom "Kode Dokumen (Scan QR)".')
-                                                    ->danger()
-                                                    ->send();
-
-                                                return; // stop proses lanjut
-                                            }
+                                            return;
                                         }
 
-                                        // (kalau perlu lanjut logic lain untuk code_103…)
+                                        // … lanjutkan logic lain khusus Kode 103 bila ada (opsional)
                                     }),
 
                                 Hidden::make('delivery_order_receipt_id')->required(),
@@ -289,6 +348,23 @@ class TransmittalKirimResource extends Resource
                     ->badge()
                     ->color('info'),
 
+                TextColumn::make('qc_destination')
+                    ->label('Tujuan QC')
+                    ->badge()
+                    ->icon(fn(?string $state) => match ($state) {
+                        'ISTEK' => 'heroicon-o-building-office',
+                        'PPE' => 'heroicon-o-building-library',
+                        default => 'heroicon-o-question-mark-circle',
+                    })
+                    ->color(fn(?string $state) => match ($state) {
+                        'ISTEK' => 'primary',
+                        'PPE' => 'info',
+                        default => 'gray',
+                    })
+                    ->sortable()
+                    ->toggleable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 TextColumn::make('users.name')
                     ->label('Dibuat Oleh')
                     ->color('warning')
@@ -308,8 +384,23 @@ class TransmittalKirimResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
-            ])
+                SelectFilter::make('qc_destination')
+                    ->label('Tujuan QC')
+                    ->options([
+                        'ISTEK' => 'ISTEK',
+                        'PPE' => 'PPE',
+                    ])
+                    ->placeholder('Semua')
+                    ->native(false),
+                SelectFilter::make('created_by')
+                    ->label('Dibuat Oleh')
+                    ->relationship('users', 'name')
+                    ->searchable()
+                    ->preload()
+                    ->native(false)
+                    ->default(fn() => Auth::user()?->hasRole('Admin') ? Auth::id() : null),
+            ], layout: FiltersLayout::AboveContent)
+            ->filtersFormColumns(2)
             ->actions([
                 ActionGroup::make([
                     Tables\Actions\ViewAction::make(),

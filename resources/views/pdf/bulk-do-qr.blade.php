@@ -26,15 +26,70 @@
 
         table {
             font-size: 10px;
-            width: auto;
             font-family: Helvetica;
             font-weight: bold;
             color: black;
-            border-collapse: collapse;
+            line-height: 1.1;
         }
 
         td {
             padding: 2px;
+            vertical-align: top;
+        }
+
+        /* Stabilkan layout & beri ruang lebih ke kolom nilai */
+        .label-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .label-table .lbl {
+            width: 22%;
+        }
+
+        .label-table .col {
+            width: 3%;
+            text-align: center;
+        }
+
+        .label-table .val {
+            width: auto;
+            white-space: normal;
+            word-break: normal;
+            overflow-wrap: break-word;
+        }
+
+        .label-table .qr {
+            width: 40px;
+            text-align: center;
+            padding-left: 4px;
+        }
+
+        /* Nilai penting jangan dipecah karakter-per-karakter */
+        .no-wrap {
+            white-space: nowrap;
+            word-break: normal;
+            overflow-wrap: normal;
+        }
+
+        /* PO No lebih besar (samakan dengan do-qr.blade.php) */
+        .po-large {
+            font-size: 14px;
+            letter-spacing: .2px;
+        }
+
+        /* QR kecil agar tidak ganggu layout (samakan) */
+        .qr-mini {
+            width: 34px;
+            height: 34px;
+            object-fit: contain;
+        }
+
+        .desc-oneline {
+            white-space: nowrap;
+            font-size: 9.5px;
+            letter-spacing: .1px;
         }
     </style>
 </head>
@@ -43,88 +98,111 @@
 
     @foreach ($records as $record)
         @php
+            /** @var \App\Models\DeliveryOrderReceipt $do */
             $do = $record['do'];
             $qrDo = $record['qrDo'];
             $items = $record['items'];
+
             $poNo = optional($do->purchaseOrderTerbits)->purchase_order_no ?? '-';
-            $tanggal = \Carbon\Carbon::parse($do->received_date)->format('d/m/Y');
-            $receivedBy = \Illuminate\Support\Str::limit(optional($do->receivedBy)->name ?? '-', 7);
+            $tanggal = $do->received_date ? \Carbon\Carbon::parse($do->received_date)->format('d/m/Y') : '-';
+            $receivedBy = optional($do->receivedBy)->name ?? '-';
         @endphp
 
+        {{-- Halaman per item (kecil) --}}
         @foreach ($do->deliveryOrderReceiptDetails as $index => $detail)
             @php
                 $qrItem = $items[$index]['qr'] ?? '';
-                $description = \Illuminate\Support\Str::limit($detail->description ?? '-', 20);
+
+                // Lokasi konsisten (tanpa limit)
                 $locationRaw = $detail->is_different_location
                     ? optional($detail->locations)->name ?? 'Lokasi Beda (Tidak diketahui)'
                     : optional($do->locations)->name ?? 'Lokasi Utama (Tidak diketahui)';
-                $location = \Illuminate\Support\Str::limit($locationRaw, 20);
+                $location = $locationRaw;
+
+                // Deskripsi: bersihkan newline/tabs → single line, lalu POTONG 25 huruf & non-breaking spaces
+                $rawDesc = (string) ($detail->description ?? '-');
+                $descFlat = preg_replace('/\s+/u', ' ', str_replace(["\r\n", "\n", "\r", "\t"], ' ', $rawDesc));
+                $desc25 = mb_substr($descFlat, 0, 25);
+                $descOneLine = str_replace(' ', '&nbsp;', e($desc25));
+
+                $qtyReceived = $detail ? $detail->quantity . ' ' . $detail->uoi : '-';
             @endphp
 
             <div class="page">
-                <table>
+                <table class="label-table">
+                    <colgroup>
+                        <col class="lbl">
+                        <col class="col">
+                        <col class="val">
+                        <col class="qr">
+                    </colgroup>
+
                     <tr>
-                        <td colspan="3" style="text-align: left; text-decoration: underline; padding-bottom: 2px;">
+                        <td colspan="3" style="text-align:left; text-decoration:underline; padding-bottom:2px;">
                             LABEL MATERIAL - DO RECEIPT
                         </td>
-                        <td style="text-align: right;">
+                        <td style="text-align:right;">
                             <img src="{{ $logo }}" style="height: 15px;">
                         </td>
                     </tr>
+
                     <tr>
                         <td>PO No</td>
-                        <td style="text-align: center;">:</td>
-                        <td>{{ $poNo }}</td>
-                        <td rowspan="7" style="text-align: center;">
-                            <img src="{{ $qrItem }}" style="width: 90px; height: 90px;">
+                        <td class="col">:</td>
+                        <td class="val po-large no-wrap">{{ $poNo }}</td>
+                        <td class="qr" rowspan="8" style="text-align:center; vertical-align: middle;">
+                            <img src="{{ $qrItem }}" class="qr-mini">
                         </td>
                     </tr>
-                    <tr>
-                        <td>DO No</td>
-                        <td style="text-align: center;">:</td>
-                        <td>{{ $do->nomor_do }}</td>
-                    </tr>
-                    <tr>
-                        <td style="width: 40%;">Tgl Terima</td>
-                        <td style="text-align: center;">:</td>
-                        <td>{{ $tanggal }}</td>
-                    </tr>
+
                     <tr>
                         <td>Item No</td>
-                        <td style="text-align: center;">:</td>
-                        <td>{{ $detail->item_no ?? '-' }}</td>
+                        <td class="col">:</td>
+                        <td class="val no-wrap">{{ $detail->item_no ?? '-' }}</td>
                     </tr>
+
+                    <tr>
+                        <td>Lokasi</td>
+                        <td class="col">:</td>
+                        <td class="val">{{ $location }}</td>
+                    </tr>
+
                     <tr>
                         <td>Material Code</td>
-                        <td style="text-align: center;">:</td>
-                        <td>{{ $detail->material_code ?? '-' }}</td>
+                        <td class="col">:</td>
+                        <td class="val no-wrap">{{ $detail->material_code ?? '-' }}</td>
                     </tr>
+
+                    <tr>
+                        <td>Deskripsi</td>
+                        <td class="col">:</td>
+                        <td class="val no-wrap">
+                            <span class="desc-oneline">{!! $descOneLine !!}</span>
+                        </td>
+                    </tr>
+
                     <tr>
                         <td>Qty Diterima</td>
-                        <td style="text-align: center;">:</td>
-                        <td>{{ $detail ? $detail->quantity . ' ' . $detail->uoi : '-' }}</td>
+                        <td class="col">:</td>
+                        <td class="val no-wrap">{{ $qtyReceived }}</td>
                     </tr>
+
                     <tr>
-                        <td colspan="1" style="padding-top: 2px;">Diterima Oleh</td>
-                        <td style="text-align: center;">:</td>
-                        <td>{{ $receivedBy }}</td>
+                        <td>Diterima Oleh</td>
+                        <td class="col">:</td>
+                        <td class="val no-wrap">{{ $receivedBy }}</td>
                     </tr>
+
                     <tr>
-                        <td colspan="1" style="padding-top: 2px;">Deskripsi</td>
-                        <td style="text-align: center;">:</td>
-                        <td colspan="5">{{ $description }}</td>
-                    </tr>
-                    <tr>
-                        <td colspan="1" style="padding-top: 2px;">Lokasi</td>
-                        <td style="text-align: center;">:</td>
-                        <td colspan="5">{{ $location }}</td>
-                        <td></td>
+                        <td>DO No</td>
+                        <td class="col">:</td>
+                        <td class="val no-wrap">{{ $do->nomor_do }}</td>
                     </tr>
                 </table>
             </div>
         @endforeach
 
-        {{-- Halaman 1: QR utama DO --}}
+        {{-- Halaman 1: QR utama DO (besar) --}}
         <div class="page">
             <table style="border-collapse: collapse; border: 1px solid black; width: 100%; max-width: 100%;">
                 <tr>

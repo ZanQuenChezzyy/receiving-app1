@@ -12,6 +12,7 @@ class TransmittalKirim extends Model
     protected $fillable = [
         'code',
         'code_103',
+        'qc_destination',
         'delivery_order_receipt_id',
         'tanggal_kirim',
         'created_by',

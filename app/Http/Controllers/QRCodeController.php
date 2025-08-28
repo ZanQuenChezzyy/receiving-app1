@@ -86,4 +86,61 @@ class QRCodeController extends Controller
         return $pdf->stream('Bulk-QR-DO.pdf');
     }
 
+    public function printDoCodeOnly($id)
+    {
+        $do = DeliveryOrderReceipt::with(['purchaseOrderTerbits', 'receivedBy', 'deliveryOrderReceiptDetails', 'locations'])
+            ->findOrFail($id);
+
+        $nomorPo = optional($do->purchaseOrderTerbits)->purchase_order_no ?? '-';
+        $nomorDo = preg_replace('/[^A-Za-z0-9]/', '', (string) $do->nomor_do);
+        $tanggal = $do->received_date ? \Carbon\Carbon::parse($do->received_date)->format('dmY') : '';
+
+        $qrContent = $nomorPo . $nomorDo . $tanggal;
+        $qrDo = 'data:image/png;base64,' . base64_encode(QrCode::size(200)->generate($qrContent));
+
+        $logoPath = public_path('img/logo-pupuk-kaltim.png');
+        $logoBase64 = 'data:image/png;base64,' . base64_encode(@file_get_contents($logoPath) ?: '');
+
+        $pdf = Pdf::loadView('pdf.do-qr-code-only', [
+            'do' => $do,
+            'qrDo' => $qrDo,
+            'logo' => $logoBase64,
+        ])->setPaper([2 * 25.4, 3 * 25.4], 'landscape'); // 3in x 2in
+
+        return $pdf->stream('QR-DO-CODE-' . str_replace(['/', '\\'], '_', (string) $do->nomor_do) . '.pdf');
+    }
+
+    public function bulkPrintDoCodeOnly(Request $request)
+    {
+        // Terima daftar id terpilih dari BulkAction: ?ids=1,2,3
+        $ids = array_filter(explode(',', (string) $request->get('ids')));
+        $dos = DeliveryOrderReceipt::with(['purchaseOrderTerbits', 'receivedBy', 'deliveryOrderReceiptDetails', 'locations'])
+            ->findMany($ids);
+
+        $records = [];
+        foreach ($dos as $do) {
+            $nomorPo = optional($do->purchaseOrderTerbits)->purchase_order_no ?? '-';
+            $nomorDo = preg_replace('/[^A-Za-z0-9]/', '', (string) $do->nomor_do);
+            $tanggal = $do->received_date ? \Carbon\Carbon::parse($do->received_date)->format('dmY') : '';
+
+            $qrContent = $nomorPo . $nomorDo . $tanggal;
+            $qrDo = 'data:image/png;base64,' . base64_encode(QrCode::size(200)->generate($qrContent));
+
+            $records[] = [
+                'do' => $do,
+                'qrDo' => $qrDo,
+            ];
+        }
+
+        $logoPath = public_path('img/logo-pupuk-kaltim.png');
+        $logoBase64 = 'data:image/png;base64,' . base64_encode(@file_get_contents($logoPath) ?: '');
+
+        $pdf = Pdf::loadView('pdf.bulk-do-qr-code-only', [
+            'records' => $records,
+            'logo' => $logoBase64,
+        ])->setPaper([2 * 25.4, 3 * 25.4], 'landscape');
+
+        return $pdf->stream('Bulk-QR-DO-CODE.pdf');
+    }
+
 }

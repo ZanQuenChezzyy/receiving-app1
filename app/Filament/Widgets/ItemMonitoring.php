@@ -144,6 +144,7 @@ class ItemMonitoring extends BaseWidget
                 TextColumn::make('purchaseOrderTerbits.purchase_order_no')
                     ->label('No. PO')
                     ->color('primary')
+                    ->searchable()
                     ->icon('heroicon-s-document-text'),
 
                 TextColumn::make('tahapan')
@@ -258,50 +259,124 @@ class ItemMonitoring extends BaseWidget
             ])
             ->recordAction('view')
             ->filters([
+                // ===== Status Proses (GRS/RDTV) =====
                 TernaryFilter::make('masih_proses')
                     ->label('Status Proses')
                     ->placeholder('Semua')
                     ->trueLabel('Masih Proses')
                     ->falseLabel('Sudah Selesai')
                     ->queries(
-                        true: fn(Builder $q) => $q->where('has_grs', 0)->where('has_rdtv', 0),
-                        false: fn(Builder $q) => $q->where(fn($qq) => $qq->where('has_grs', 1)->orWhere('has_rdtv', 1)),
-                        blank: fn(Builder $q) => $q
+                        true: fn(Builder $q) => $q
+                            ->whereRaw("
+                    NOT EXISTS (
+                        SELECT 1 FROM goods_receipt_slips grs
+                        WHERE grs.delivery_order_receipt_id = delivery_order_receipts.id
+                    )
+                    AND
+                    NOT EXISTS (
+                        SELECT 1 FROM return_delivery_to_vendors rdtv
+                        WHERE rdtv.delivery_order_receipt_id = delivery_order_receipts.id
+                    )
+                "),
+                        false: fn(Builder $q) => $q
+                            ->whereRaw("
+                    EXISTS (
+                        SELECT 1 FROM goods_receipt_slips grs
+                        WHERE grs.delivery_order_receipt_id = delivery_order_receipts.id
+                    )
+                    OR
+                    EXISTS (
+                        SELECT 1 FROM return_delivery_to_vendors rdtv
+                        WHERE rdtv.delivery_order_receipt_id = delivery_order_receipts.id
+                    )
+                "),
+                        blank: fn(Builder $q) => $q,
                     )
                     ->native(false),
 
+                // ===== Status 103 (Kirim + Kembali) =====
                 TernaryFilter::make('status_103')
                     ->label('Status 103')
                     ->placeholder('Semua')
                     ->trueLabel('Sudah')
                     ->falseLabel('Belum')
                     ->queries(
-                        true: fn(Builder $q) => $q->where('has_kirim', 1),
-                        false: fn(Builder $q) => $q->where('has_kirim', 0),
+                        // “Sudah 103” = punya kirim & punya kembali
+                        true: fn(Builder $q) => $q->whereRaw("
+                EXISTS (
+                    SELECT 1
+                    FROM transmittal_kirims tk
+                    WHERE tk.delivery_order_receipt_id = delivery_order_receipts.id
+                )
+                AND EXISTS (
+                    SELECT 1
+                    FROM transmittal_kirims tk
+                    JOIN transmittal_kembali_details tkd ON tkd.transmittal_kirim_id = tk.id
+                    JOIN transmittal_kembalis tkk ON tkk.id = tkd.transmittal_kembali_id
+                    WHERE tk.delivery_order_receipt_id = delivery_order_receipts.id
+                )
+            "),
+                        // “Belum 103” = belum kirim ATAU sudah kirim tapi belum kembali
+                        false: fn(Builder $q) => $q->whereRaw("
+                NOT EXISTS (
+                    SELECT 1
+                    FROM transmittal_kirims tk
+                    WHERE tk.delivery_order_receipt_id = delivery_order_receipts.id
+                )
+                OR NOT EXISTS (
+                    SELECT 1
+                    FROM transmittal_kirims tk
+                    JOIN transmittal_kembali_details tkd ON tkd.transmittal_kirim_id = tk.id
+                    JOIN transmittal_kembalis tkk ON tkk.id = tkd.transmittal_kembali_id
+                    WHERE tk.delivery_order_receipt_id = delivery_order_receipts.id
+                )
+            "),
                         blank: fn(Builder $q) => $q,
                     )
                     ->native(false),
 
+                // ===== Status 105 (GRS) =====
                 TernaryFilter::make('status_105')
                     ->label('Status 105')
                     ->placeholder('Semua')
                     ->trueLabel('Sudah')
                     ->falseLabel('Belum')
                     ->queries(
-                        true: fn(Builder $q) => $q->where('has_grs', 1),
-                        false: fn(Builder $q) => $q->where('has_grs', 0),
+                        true: fn(Builder $q) => $q->whereRaw("
+                EXISTS (
+                    SELECT 1 FROM goods_receipt_slips grs
+                    WHERE grs.delivery_order_receipt_id = delivery_order_receipts.id
+                )
+            "),
+                        false: fn(Builder $q) => $q->whereRaw("
+                NOT EXISTS (
+                    SELECT 1 FROM goods_receipt_slips grs
+                    WHERE grs.delivery_order_receipt_id = delivery_order_receipts.id
+                )
+            "),
                         blank: fn(Builder $q) => $q,
                     )
                     ->native(false),
 
+                // ===== Status 124 (RDTV) =====
                 TernaryFilter::make('status_124')
                     ->label('Status 124')
                     ->placeholder('Semua')
                     ->trueLabel('Sudah')
                     ->falseLabel('Belum')
                     ->queries(
-                        true: fn(Builder $q) => $q->where('has_rdtv', 1),
-                        false: fn(Builder $q) => $q->where('has_rdtv', 0),
+                        true: fn(Builder $q) => $q->whereRaw("
+                EXISTS (
+                    SELECT 1 FROM return_delivery_to_vendors rdtv
+                    WHERE rdtv.delivery_order_receipt_id = delivery_order_receipts.id
+                )
+            "),
+                        false: fn(Builder $q) => $q->whereRaw("
+                NOT EXISTS (
+                    SELECT 1 FROM return_delivery_to_vendors rdtv
+                    WHERE rdtv.delivery_order_receipt_id = delivery_order_receipts.id
+                )
+            "),
                         blank: fn(Builder $q) => $q,
                     )
                     ->native(false),
@@ -348,22 +423,41 @@ class ItemMonitoring extends BaseWidget
                                 Grid::make(3)->schema([
                                     TextEntry::make('received_date')
                                         ->label('Tanggal Diterima')
-                                        ->formatStateUsing(fn($state) => $state ? Carbon::parse($state)->translatedFormat('l, d F Y') : 'Belum diterima'),
+                                        ->state(
+                                            fn($record) =>
+                                            $record->received_date
+                                            ? Carbon::parse($record->received_date)->translatedFormat('l, d F Y')
+                                            : 'Belum diterima'
+                                        )
+                                        ->color(fn($state) => str_contains($state, 'Belum') ? 'danger' : null),
 
                                     TextEntry::make('tgl_kirim_qc')
                                         ->label('Tanggal Kirim QC')
-                                        ->formatStateUsing(fn($state) => $state ? Carbon::parse($state)->translatedFormat('l, d F Y') : 'Belum dikirim'),
+                                        ->state(
+                                            fn($record) =>
+                                            $record->tgl_kirim_qc
+                                            ? Carbon::parse($record->tgl_kirim_qc)->translatedFormat('l, d F Y')
+                                            : 'Belum dikirim'
+                                        )
+                                        ->color(fn($state) => str_contains($state, 'Belum') ? 'danger' : null),
 
                                     TextEntry::make('tgl_kembali_qc')
                                         ->label('Tanggal Kembali QC')
-                                        ->formatStateUsing(fn($state) => $state ? Carbon::parse($state)->translatedFormat('l, d F Y') : 'Belum kembali'),
+                                        ->state(
+                                            fn($record) =>
+                                            $record->tgl_kembali_qc
+                                            ? Carbon::parse($record->tgl_kembali_qc)->translatedFormat('l, d F Y')
+                                            : 'Belum kembali'
+                                        )
+                                        ->color(fn($state) => str_contains($state, 'Belum') ? 'danger' : null),
 
                                     TextEntry::make('tanggal_kirim_approval_vp')
                                         ->label('Tanggal Kirim Approval VP')
                                         ->state(function (DeliveryOrderReceipt $record) {
                                             $tgl = \App\Models\ApprovalVpKirim::where('code', $record->do_code)->value('tanggal_kirim');
                                             return $tgl ? Carbon::parse($tgl)->translatedFormat('l, d F Y') : 'Belum dikirim';
-                                        }),
+                                        })
+                                        ->color(fn($state) => str_contains($state, 'Belum') ? 'danger' : null),
 
                                     TextEntry::make('tanggal_kembali_approval_vp')
                                         ->label('Tanggal Kembali Approval VP')
@@ -376,7 +470,8 @@ class ItemMonitoring extends BaseWidget
                                                 })
                                                 ->value('tanggal_kembali');
                                             return $tgl ? Carbon::parse($tgl)->translatedFormat('l, d F Y') : 'Belum dikirim';
-                                        }),
+                                        })
+                                        ->color(fn($state) => str_contains($state, 'Belum') ? 'danger' : null),
                                 ]),
                             ]),
 
@@ -385,43 +480,186 @@ class ItemMonitoring extends BaseWidget
                             ->collapsed()
                             ->schema([
                                 Grid::make(4)->schema([
-                                    TextEntry::make('lead_time_terima')
+
+                                    // 1) Terima -> Kirim QC (Status QC)
+                                    TextEntry::make('lt_receipt_to_qc_send')
                                         ->label('Status QC')
                                         ->state(function (DeliveryOrderReceipt $record) {
-                                            $res = static::hitungHariKerja($record->received_date, $record->tgl_kirim_qc);
-                                            return is_numeric($res) ? "{$res} hari" : $res;
-                                        }),
+                                            if (!$record->received_date)
+                                                return 'Belum diterima';
+                                            if (!$record->tgl_kirim_qc) {
+                                                $days = static::hitungHariKerja($record->received_date, now());
+                                                return "Pending ({$days} hari kerja)";
+                                            }
+                                            $days = static::hitungHariKerja($record->received_date, $record->tgl_kirim_qc);
+                                            return is_numeric($days) ? "{$days} hari" : $days;
+                                        })
+                                        ->color(function (string $state) {
+                                            if (str_contains($state, 'Belum') || str_contains($state, 'Pending'))
+                                                return 'danger';
+                                            $days = (int) filter_var($state, FILTER_SANITIZE_NUMBER_INT);
+                                            return $days <= 2 ? 'success' : ($days <= 5 ? 'warning' : 'success');
+                                        })
+                                        ->badge(),
 
-                                    TextEntry::make('lead_time_kirim_kembali')
+                                    // 2) Kirim QC -> Kembali QC (Siklus QC)
+                                    TextEntry::make('lt_qc_cycle')
                                         ->label('Leadtime QC')
                                         ->state(function (DeliveryOrderReceipt $record) {
-                                            $res = static::hitungHariKerja($record->tgl_kirim_qc, $record->tgl_kembali_qc);
-                                            return is_numeric($res) ? "{$res} hari" : $res;
-                                        }),
+                                            if (!$record->tgl_kirim_qc)
+                                                return 'Belum dikirim';
+                                            if (!$record->tgl_kembali_qc)
+                                                return 'Belum kembali';
+                                            $days = static::hitungHariKerja($record->tgl_kirim_qc, $record->tgl_kembali_qc);
+                                            return is_numeric($days) ? "{$days} hari" : $days;
+                                        })
+                                        ->color(function (string $state) {
+                                            if (str_contains($state, 'Belum'))
+                                                return 'danger';
+                                            $days = (int) filter_var($state, FILTER_SANITIZE_NUMBER_INT);
+                                            return $days <= 2 ? 'success' : ($days <= 5 ? 'warning' : 'success');
+                                        })
+                                        ->badge(),
 
-                                    TextEntry::make('lead_time_completion')
-                                        ->label('Leadtime GRS/RDTV')
+                                    // 3) Terima -> GRS
+                                    TextEntry::make('lt_to_grs')
+                                        ->label('Leadtime ke GRS')
                                         ->state(function (DeliveryOrderReceipt $record) {
-                                            $end = collect([$record->tgl_grs, $record->tgl_rdtv])->filter()->sort()->first();
-                                            $res = static::hitungHariKerja($record->received_date, $end);
-                                            return is_numeric($res) ? "{$res} hari" : $res;
-                                        }),
+                                            if (!$record->received_date)
+                                                return 'Belum diterima';
+                                            if (!$record->tgl_grs)
+                                                return 'Belum GRS';
+                                            $days = static::hitungHariKerja($record->received_date, $record->tgl_grs);
+                                            return is_numeric($days) ? "{$days} hari" : $days;
+                                        })
+                                        ->color(function (string $state) {
+                                            if (str_contains($state, 'Belum'))
+                                                return 'danger';
+                                            $days = (int) filter_var($state, FILTER_SANITIZE_NUMBER_INT);
+                                            return $days <= 2 ? 'success' : ($days <= 5 ? 'warning' : 'success');
+                                        })
+                                        ->badge(),
 
+                                    // 4) Terima -> RDTV
+                                    TextEntry::make('lt_to_rdtv')
+                                        ->label('Leadtime ke RDTV')
+                                        ->state(function (DeliveryOrderReceipt $record) {
+                                            if (!$record->received_date)
+                                                return 'Belum diterima';
+                                            if (!$record->tgl_rdtv)
+                                                return 'Belum RDTV';
+                                            $days = static::hitungHariKerja($record->received_date, $record->tgl_rdtv);
+                                            return is_numeric($days) ? "{$days} hari" : $days;
+                                        })
+                                        ->color(function (string $state) {
+                                            if (str_contains($state, 'Belum'))
+                                                return 'danger';
+                                            $days = (int) filter_var($state, FILTER_SANITIZE_NUMBER_INT);
+                                            return $days <= 2 ? 'success' : ($days <= 5 ? 'warning' : 'success');
+                                        })
+                                        ->badge(),
+
+                                    // 5) End-to-End (Terima -> paling cepat antara GRS / RDTV)
+                                    TextEntry::make('lt_end_to_end')
+                                        ->label('End-to-End (GRS/RDTV)')
+                                        ->state(function (DeliveryOrderReceipt $record) {
+                                            if (!$record->received_date)
+                                                return 'Belum diterima';
+                                            $end = collect([$record->tgl_grs, $record->tgl_rdtv])->filter()->sort()->first();
+                                            if (!$end)
+                                                return 'Belum selesai';
+                                            $days = static::hitungHariKerja($record->received_date, $end);
+                                            return is_numeric($days) ? "{$days} hari" : $days;
+                                        })
+                                        ->color(function (string $state) {
+                                            if (str_contains($state, 'Belum'))
+                                                return 'danger';
+                                            $days = (int) filter_var($state, FILTER_SANITIZE_NUMBER_INT);
+                                            return $days <= 2 ? 'success' : ($days <= 5 ? 'warning' : 'success');
+                                        })
+                                        ->badge(),
+
+                                    // 6) Aging Open Process (Terima -> today), hanya jika belum GRS & RDTV
+                                    TextEntry::make('lt_aging_open')
+                                        ->label('Aging (Open)')
+                                        ->state(function (DeliveryOrderReceipt $record) {
+                                            if (!$record->received_date) {
+                                                return 'Belum diterima';
+                                            }
+
+                                            // Sudah selesai (ada GRS/RDTV)
+                                            if ($record->tgl_grs || $record->tgl_rdtv) {
+                                                return 'Proses selesai';
+                                            }
+
+                                            $days = static::hitungHariKerja($record->received_date, now());
+
+                                            if (!is_numeric($days)) {
+                                                return 'Tidak tersedia';
+                                            }
+
+                                            return "Open {$days} hari";
+                                        })
+                                        ->color(function (string $state) {
+                                            if (str_contains($state, 'Belum')) {
+                                                return 'danger';
+                                            }
+                                            if (str_contains($state, 'Proses selesai') || str_contains($state, 'Tidak tersedia')) {
+                                                return 'gray';
+                                            }
+                                            $days = (int) filter_var($state, FILTER_SANITIZE_NUMBER_INT);
+                                            return $days <= 2 ? 'success' : ($days <= 5 ? 'warning' : 'danger');
+                                        })
+                                        ->badge(),
+
+                                    // 7) Leadtime Approval VP (diperbaiki: scope by do_code)
                                     TextEntry::make('lead_time_vp')
                                         ->label('Leadtime Approval VP')
                                         ->state(function (DeliveryOrderReceipt $record) {
-                                            $kirim = \App\Models\ApprovalVpKirim::whereHas(
-                                                'approvalVpKembaliDetails',
-                                                fn($q) => $q->whereHas('approvalVpKembali')
-                                            )->first();
+                                            $kirim = \App\Models\ApprovalVpKirim::query()
+                                                ->where('code', $record->do_code)
+                                                ->first();
 
-                                            $res = static::hitungHariKerja(
-                                                $kirim?->tanggal_kirim,
-                                                $kirim?->approvalVpKembaliDetails->first()?->approvalVpKembali?->tanggal_kembali
-                                            );
+                                            $tglKirim = $kirim?->tanggal_kirim;
+                                            $tglKembali = optional($kirim?->approvalVpKembaliDetails->first()?->approvalVpKembali)->tanggal_kembali;
 
-                                            return is_numeric($res) ? "{$res} hari" : $res;
-                                        }),
+                                            if (!$tglKirim)
+                                                return 'Belum dikirim';
+                                            if (!$tglKembali)
+                                                return 'Belum kembali';
+
+                                            $days = static::hitungHariKerja($tglKirim, $tglKembali);
+                                            return is_numeric($days) ? "{$days} hari" : $days;
+                                        })
+                                        ->color(function (string $state) {
+                                            if (str_contains($state, 'Belum'))
+                                                return 'danger';
+                                            $days = (int) filter_var($state, FILTER_SANITIZE_NUMBER_INT);
+                                            return $days <= 2 ? 'success' : ($days <= 5 ? 'warning' : 'success');
+                                        })
+                                        ->badge(),
+
+                                    // 8) Stage Saat Ini / Bottleneck
+                                    TextEntry::make('current_stage')
+                                        ->label('Stage Saat Ini')
+                                        ->state(function (DeliveryOrderReceipt $record) {
+                                            if (!$record->received_date)
+                                                return 'Menunggu: Terima DO';
+                                            if (!$record->tgl_kirim_qc)
+                                                return 'Menunggu: Kirim QC';
+                                            if (!$record->tgl_kembali_qc)
+                                                return 'Menunggu: Kembali QC';
+                                            if (!$record->tgl_grs && !$record->tgl_rdtv)
+                                                return 'Menunggu: GRS / RDTV';
+                                            return 'Selesai';
+                                        })
+                                        ->color(
+                                            fn(string $state) =>
+                                            str_starts_with($state, 'Menunggu') ? 'warning' :
+                                            ($state === 'Selesai' ? 'success' : null)
+                                        )
+                                        ->badge(),
+
                                 ]),
                             ]),
 

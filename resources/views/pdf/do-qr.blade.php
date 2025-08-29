@@ -95,6 +95,10 @@
             letter-spacing: .1px;
         }
 
+        .no-wrap {
+            white-space: nowrap;
+        }
+
         /* semula 42x42 */
     </style>
 </head>
@@ -110,6 +114,22 @@
             $material = $detail->material_code ?? '-';
             $receivedBy = optional($do->receivedBy)->name ?? '-';
             $qtyReceived = $detail ? $detail->quantity . ' ' . $detail->uoi : '-';
+
+            $tahun = '-';
+            $poDate = optional($do->purchaseOrderTerbits)->date_create;
+
+            if ($poDate) {
+                try {
+                    $tahun = \Carbon\Carbon::parse($poDate)->format('Y');
+                } catch (\Throwable $e) {
+                }
+            }
+            if ($tahun === '-' && $do->received_date) {
+                try {
+                    $tahun = \Carbon\Carbon::parse($do->received_date)->format('Y');
+                } catch (\Throwable $e) {
+                }
+            }
 
             // Lokasi (tetap boleh wrap)
             $locationRaw = $detail?->is_different_location
@@ -243,6 +263,71 @@
             </tr>
             <tr>
                 <td colspan="4" style="text-align: right; padding-top: 6px;">
+                    <img src="{{ $logo }}" style="height: 15px;">
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    {{-- Halaman 2: PO QR Detail DO --}}
+    <div class="page">
+        <table style="width: 100%; max-width: 100%; border-collapse: collapse; table-layout: fixed;">
+            <colgroup>
+                <col style="width: 30px;"> {{-- QR --}}
+                <col style="width: 38%;"> {{-- Label --}}
+                <col style="width: 4%;"> {{-- Colon --}}
+                <col style="width: auto;"> {{-- Value --}}
+            </colgroup>
+
+            <tr>
+                {{-- QR span semua baris (1 judul + 6 detail + 1 footer = 8). Sesuaikan jika jumlah baris berubah. --}}
+                <td rowspan="2" style="text-align: center; padding-right: 10px; vertical-align: top;">
+                    <img src="{{ $qrDo }}" style="width: 45px; height: 45px;">
+                </td>
+
+                {{-- Judul menempati 3 kolom selain QR --}}
+                <td colspan="3" style="padding-bottom: 4px;">
+                    <div
+                        style="border: 1px solid #000; padding: 4px 8px; font-size: 18px; text-align: center; background-color: #000;">
+                        <strong style="color: #fff;">
+                            {{ $do->purchaseOrderTerbits->purchase_order_no ?? '-' }} | {{ $tahun }}
+                        </strong>
+                    </div>
+                </td>
+            </tr>
+
+            <tr>
+                <td class="no-wrap">Tahap</td>
+                <td style="text-align: center;">:</td>
+                <td class="no-wrap">{{ $do->tahapan ?? 'Tidak Ada' }}</td>
+            </tr>
+
+            <tr>
+                <td class="no-wrap">Nomor DO</td>
+                <td style="text-align: center;">:</td>
+                <td class="no-wrap">{{ $do->nomor_do }}</td>
+            </tr>
+
+            <tr>
+                <td class="no-wrap">Tanggal Terima</td>
+                <td style="text-align: center;">:</td>
+                <td class="no-wrap">{{ \Carbon\Carbon::parse($do->received_date)->format('d/m/Y') ?? '-' }}</td>
+            </tr>
+
+            <tr>
+                <td class="no-wrap">Total Item</td>
+                <td style="text-align: center;">:</td>
+                <td class="no-wrap">{{ $do->deliveryOrderReceiptDetails->count() }} Item</td>
+            </tr>
+
+            <tr>
+                <td class="no-wrap">Diterima Oleh</td>
+                <td style="text-align: center;">:</td>
+                <td class="no-wrap">{{ $receivedBy }}</td>
+            </tr>
+
+            <tr>
+                <td colspan="3" style="text-align: left; padding-top: 6px;">
                     <img src="{{ $logo }}" style="height: 15px;">
                 </td>
             </tr>

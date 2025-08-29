@@ -274,10 +274,10 @@ class DeliveryOrderReceiptResource extends Resource
                                                             ->helperText('Jika Qty diterima lebih dari Qty PO.')
                                                             ->onColor('primary')
                                                             ->reactive()
-                                                            ->hidden(!Auth::user()->hasRole('Administrator'))
+                                                            ->hidden(!Auth::user()->hasRole(['Developer', 'Super Admin', 'Staff']))
                                                             ->default(false),
-                                                    ])->columns(Auth::user()->hasRole('Administrator') ? 2 : 1)
-                                                    ->columnSpan(Auth::user()->hasRole('Administrator') ? 2 : 1),
+                                                    ])->columns(Auth::user()->hasRole(['Developer', 'Super Admin', 'Staff']) ? 2 : 1)
+                                                    ->columnSpan(Auth::user()->hasRole(['Developer', 'Super Admin', 'Staff']) ? 2 : 1),
 
                                                 Grid::make(5)
                                                     ->schema([
@@ -298,7 +298,7 @@ class DeliveryOrderReceiptResource extends Resource
 
                                                                 $colorDiterima = $qtyReceived == 0 ? '#6b7280' : '#16a34a'; // Tailwind 'text-green-600'
                                                                 $colorSisa = $sisa == 0 ? '#6b7280' : '#dc2626'; // gray-500 jika sisa 0, red-600 jika masih ada sisa
-                                                    
+
                                                                 return new HtmlString("
                                                                     <span style='color: {$colorDiterima}; font-weight: 500;'>Diterima: {$qtyReceived} {$uoi}</span><br>
                                                                     <span style='color: {$colorSisa}; font-weight: 500;'>Sisa: {$sisa} {$uoi}</span>

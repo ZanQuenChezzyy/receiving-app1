@@ -13,7 +13,7 @@ return new class extends Migration {
         Schema::create('delivery_order_receipt_details', function (Blueprint $table) {
             $table->id();
             $table->foreignId('delivery_order_receipt_id')->constrained('delivery_order_receipts')->cascadeOnDelete();
-            $table->unsignedTinyInteger('item_no');
+            $table->unsignedMediumInteger('item_no');
             $table->string('quantity', 10);
             $table->string('material_code', 20)->nullable();
             $table->text('description');

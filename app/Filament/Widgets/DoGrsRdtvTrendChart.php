@@ -8,13 +8,14 @@ use App\Models\GoodsReceiptSlip;
 use App\Models\ReturnDeliveryToVendor;
 use Filament\Widgets\ChartWidget;
 use Illuminate\Support\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 
 class DoGrsRdtvTrendChart extends ChartWidget
 {
     protected static ?string $heading = 'Tren: DO vs 105 (GRS) vs 124 (RDTV)';
     protected static ?int $sort = 2;
-
+    protected static ?string $maxHeight = '279px';
     public ?string $filter = 'month';
 
     protected function getFilters(): ?array
@@ -41,55 +42,49 @@ class DoGrsRdtvTrendChart extends ChartWidget
                 $useDateOnly = true;
                 break;
 
-            case 'week': // 12 minggu terakhir (per MINGGU, ISO), format kunci: 2025-W09
-                $start = $now->copy()->subWeeks(11)->startOfWeek(Carbon::MONDAY);
-                $end = $now->copy()->endOfWeek(Carbon::MONDAY);
+            case 'week': // 12 minggu terakhir (per MINGGU ISO), label: 2025-W09, dst.
+                $start = $now->copy()->subWeeks(11)->startOfWeek(CarbonInterface::MONDAY);
+                $end = $now->copy()->endOfWeek(CarbonInterface::SUNDAY);
                 $keys = $this->weeklyKeys($start, $end); // ['2025-W01', '2025-W02', ...]
-                $labels = $keys; // langsung tampilkan 2025-Www supaya jelas
+                $labels = $keys;
                 $groupExpr = "DATE_FORMAT(%s, '%x-W%v')";
                 $useDateOnly = false;
                 break;
 
-            case 'year': // Tahun berjalan (per BULAN)
-                $start = $now->copy()->startOfYear();
-                $end = $now;
-                $keys = $this->monthlyKeys($start, $end); // ['Y-m', ...]
+            case 'year': // 5 tahun terakhir (per TAHUN)
+                $startYear = $now->year - 4;
+                $endYear = $now->year;
+                $start = Carbon::create($startYear, 1, 1)->startOfDay();
+                $end = Carbon::create($endYear, 12, 31)->endOfDay();
+                $keys = $this->yearlyKeys($startYear, $endYear); // ['2021','2022','2023','2024','2025']
+                $labels = $keys; // tampilkan angka tahun
+                $groupExpr = "YEAR(%s)";
+                $useDateOnly = false;
+                break;
+
+            case 'month': // BULANAN: Jan–Des TAHUN BERJALAN (per BULAN)
+            default:
+                $year = $now->year;
+                $start = Carbon::create($year, 1, 1)->startOfDay();
+                $end = Carbon::create($year, 12, 31)->endOfDay();
+                $keys = $this->monthlyKeys($start, $end); // ['Y-m' 12 elemen]
                 $labels = array_map(fn($m) => Carbon::createFromFormat('Y-m', $m)->translatedFormat('M'), $keys);
                 $groupExpr = "DATE_FORMAT(%s, '%Y-%m')";
                 $useDateOnly = false;
                 break;
-
-            case 'month': // default: 30 hari terakhir (per HARI)
-            default:
-                $start = $now->copy()->subDays(29);
-                $end = $now;
-                $keys = $this->dailyKeys($start, $end);
-                $labels = array_map(fn($d) => Carbon::parse($d)->format('d M'), $keys);
-                $groupExpr = "DATE(%s)";
-                $useDateOnly = true;
-                break;
         }
 
-        // Helper: ambil map [key => count] dengan grouping yang konsisten
+        // Helper ambil map [key => count] sesuai grouping
         $fetch = function (string $modelClass, string $col) use ($start, $end, $groupExpr, $useDateOnly) {
-            $group = sprintf($groupExpr, $col);
+            $group = str_replace('%s', $col, $groupExpr); // hindari sprintf conflict dgn %x/%v
             $q = $modelClass::query();
 
             if ($useDateOnly) {
-                // pakai DATE() di WHERE juga (2 argumen tambahan untuk bikin lint senang)
-                $q->whereBetween(
-                    DB::raw("DATE($col)"),
-                    [$start->toDateString(), $end->toDateString()],
-                    'and',
-                    false
-                );
+                $q->whereDate($col, '>=', $start->toDateString())
+                    ->whereDate($col, '<=', $end->toDateString());
             } else {
-                $q->whereBetween(
-                    $col,
-                    [$start->startOfDay(), $end->endOfDay()],
-                    'and',
-                    false
-                );
+                $q->where($col, '>=', $start)
+                    ->where($col, '<=', $end);
             }
 
             return $q->selectRaw("$group as k, COUNT(*) as c")
@@ -98,10 +93,12 @@ class DoGrsRdtvTrendChart extends ChartWidget
                 ->toArray();
         };
 
+        // Ambil data
         $doMap = $fetch(DeliveryOrderReceipt::class, 'received_date');
         $grsMap = $fetch(GoodsReceiptSlip::class, 'tanggal_terbit');
         $rdtvMap = $fetch(ReturnDeliveryToVendor::class, 'tanggal_terbit');
 
+        // Susun data series mengikuti $keys
         $seriesFrom = fn(array $map) => array_map(fn($k) => (int) ($map[$k] ?? 0), $keys);
 
         return [
@@ -150,10 +147,10 @@ class DoGrsRdtvTrendChart extends ChartWidget
     private function dailyKeys(Carbon $start, Carbon $end): array
     {
         $keys = [];
-        $cursor = $start->copy();
-        while ($cursor->lte($end)) {
-            $keys[] = $cursor->format('Y-m-d');
-            $cursor->addDay();
+        $c = $start->copy();
+        while ($c->lte($end)) {
+            $keys[] = $c->format('Y-m-d');
+            $c->addDay();
         }
         return $keys;
     }
@@ -162,23 +159,32 @@ class DoGrsRdtvTrendChart extends ChartWidget
     private function weeklyKeys(Carbon $start, Carbon $end): array
     {
         $keys = [];
-        $cursor = $start->copy()->startOfWeek(Carbon::MONDAY);
-        while ($cursor->lte($end)) {
-            // pakai format yang match dengan SQL '%x-W%v'
-            $keys[] = $cursor->isoFormat('GGGG-[W]WW'); // contoh: 2025-W09
-            $cursor->addWeek();
+        $c = $start->copy()->startOfWeek(CarbonInterface::MONDAY);
+        while ($c->lte($end)) {
+            $keys[] = $c->isoFormat('GGGG-[W]WW'); // 2025-W09
+            $c->addWeek();
         }
         return $keys;
     }
 
-    /** Array of Y-m from $start..$end (inklusif) */
+    /** Array of Y-m (Jan..Des) dari $start..$end (inklusif) */
     private function monthlyKeys(Carbon $start, Carbon $end): array
     {
         $keys = [];
-        $cursor = $start->copy()->startOfMonth();
-        while ($cursor->lte($end)) {
-            $keys[] = $cursor->format('Y-m');
-            $cursor->addMonth();
+        $c = $start->copy()->startOfMonth();
+        while ($c->lte($end)) {
+            $keys[] = $c->format('Y-m');
+            $c->addMonth();
+        }
+        return $keys;
+    }
+
+    /** Array tahun ['2021','2022',...,'2025'] */
+    private function yearlyKeys(int $startYear, int $endYear): array
+    {
+        $keys = [];
+        for ($y = $startYear; $y <= $endYear; $y++) {
+            $keys[] = (string) $y;
         }
         return $keys;
     }
@@ -191,6 +197,15 @@ class DoGrsRdtvTrendChart extends ChartWidget
                 'tooltip' => ['mode' => 'index', 'intersect' => false],
             ],
             'interaction' => ['mode' => 'index', 'intersect' => false],
+            'scales' => [
+                'x' => [
+                    'ticks' => [
+                        'autoSkip' => true,
+                        'maxRotation' => 0,
+                        'minRotation' => 0,
+                    ],
+                ],
+            ],
         ];
     }
 }

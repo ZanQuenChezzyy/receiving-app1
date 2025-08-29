@@ -251,7 +251,7 @@ class ReceivingStats extends BaseWidget
                 ->extraAttributes(['title' => 'MTD = Month-To-Date (bulan berjalan)']),
 
             Stat::make('Rata-rata lead time 103 (hari kerja)', $avgLead103 . ' hari')
-                ->description('14 hari terakhir (Sen–Jum, libur nasional tidak dihitung)')
+                ->description('14 hari terakhir, Senin - Jumat')
                 ->descriptionIcon('heroicon-m-chart-bar')
                 ->chart($avgLeadPerDay)
                 ->color($colorLead)

@@ -15,7 +15,7 @@ class Cycle103CumulativeChart extends ChartWidget
     protected static ?string $heading = '103 Kumulatif: Kirim vs Kembali';
     protected static ?int $sort = 3;
     protected static ?string $maxHeight = '279px';
-    public ?string $filter = 'day';
+    public ?string $filter = 'month';
 
     protected function getFilters(): ?array
     {
@@ -73,29 +73,39 @@ class Cycle103CumulativeChart extends ChartWidget
         // ===== Ambil tanggal pertama KIRIM & KEMBALI per DO dalam rentang =====
         $firstKirimDates = DB::table('transmittal_kirims as tk')
             ->join('delivery_order_receipts as dor', 'dor.id', '=', 'tk.delivery_order_receipt_id')
-            ->whereBetween('tk.tanggal_kirim', [$start, $end])
+            ->whereBetween(DB::raw('DATE(tk.tanggal_kirim)'), [$start->toDateString(), $end->toDateString()])
             ->groupBy('dor.id')
-            ->selectRaw('MIN(tk.tanggal_kirim) as first_dt')
-            ->pluck('first_dt')
+            ->selectRaw('DATE(MIN(tk.tanggal_kirim)) as d')   // ⬅️ sudah jadi 'Y-m-d'
+            ->pluck('d')
             ->toArray();
 
+        // KEMBALI: sama—bandingkan sebagai DATE, lalu ambil MIN dan cast ke DATE
         $firstKembaliDates = DB::table('transmittal_kirims as tk')
             ->join('transmittal_kembali_details as tkd', 'tkd.transmittal_kirim_id', '=', 'tk.id')
             ->join('transmittal_kembalis as tkk', 'tkk.id', '=', 'tkd.transmittal_kembali_id')
             ->join('delivery_order_receipts as dor', 'dor.id', '=', 'tk.delivery_order_receipt_id')
-            ->whereBetween('tkk.tanggal_kembali', [$start, $end])
+            ->whereBetween(DB::raw('DATE(tkk.tanggal_kembali)'), [$start->toDateString(), $end->toDateString()])
             ->groupBy('dor.id')
-            ->selectRaw('MIN(tkk.tanggal_kembali) as first_dt')
-            ->pluck('first_dt')
+            ->selectRaw('DATE(MIN(tkk.tanggal_kembali)) as d') // ⬅️ sudah jadi 'Y-m-d'
+            ->pluck('d')
             ->toArray();
+
+        $baselineKembali = DB::table('transmittal_kirims as tk')
+            ->join('transmittal_kembali_details as tkd', 'tkd.transmittal_kirim_id', '=', 'tk.id')
+            ->join('transmittal_kembalis as tkk', 'tkk.id', '=', 'tkd.transmittal_kembali_id')
+            ->join('delivery_order_receipts as dor', 'dor.id', '=', 'tk.delivery_order_receipt_id')
+            ->select('dor.id')
+            ->groupBy('dor.id')
+            ->havingRaw('MIN(DATE(tkk.tanggal_kembali)) < ?', [$start->toDateString()])
+            ->count();
 
         // ===== Hitung frekuensi per bucket key =====
         $countByKey = function (array $dates) use ($keyFn): array {
             $m = [];
-            foreach ($dates as $dt) {
-                if (!$dt)
+            foreach ($dates as $d) {
+                if (!$d)
                     continue;
-                $k = $keyFn($dt);
+                $k = $keyFn($d);           // $d sudah 'Y-m-d', aman untuk Carbon::parse
                 $m[$k] = ($m[$k] ?? 0) + 1;
             }
             return $m;
@@ -110,6 +120,13 @@ class Cycle103CumulativeChart extends ChartWidget
 
         $cumKirim = $this->prefixSum($seriesKirim);             // dari trait
         $cumKembali = $this->prefixSum($seriesKembali);
+
+        // setelah hitung $cumKembali:
+        if ($baselineKembali > 0) {
+            foreach ($cumKembali as $i => $val) {
+                $cumKembali[$i] = $val + $baselineKembali;
+            }
+        }
 
         // Backlog = Kirim kumulatif – Kembali kumulatif (>=0)
         $backlog = [];

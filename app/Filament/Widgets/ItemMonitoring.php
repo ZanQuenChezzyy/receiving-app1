@@ -495,13 +495,13 @@ class ItemMonitoring extends BaseWidget
                                             if (!$record->received_date)
                                                 return 'Belum diterima';
                                             if (!$record->tgl_rdtv)
-                                                return 'Belum RDTV';
+                                                return 'Tidak RDTV';
                                             $days = static::hitungHariKerja($record->received_date, $record->tgl_rdtv);
                                             return is_numeric($days) ? "{$days} hari" : $days;
                                         })
                                         ->color(function (string $state) {
-                                            if (str_contains($state, 'Belum'))
-                                                return 'danger';
+                                            if (str_contains($state, 'Tidak'))
+                                                return 'gray';
                                             $days = (int) filter_var($state, FILTER_SANITIZE_NUMBER_INT);
                                             return $days <= 2 ? 'success' : ($days <= 5 ? 'warning' : 'success');
                                         })

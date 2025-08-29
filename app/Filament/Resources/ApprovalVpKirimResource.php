@@ -27,6 +27,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class ApprovalVpKirimResource extends Resource
 {
@@ -57,85 +58,142 @@ class ApprovalVpKirimResource extends Resource
                     ->icon('heroicon-o-truck')
                     ->description('Isi tanggal kirim dan scan kode dokumen untuk menarik data otomatis.')
                     ->schema([
-                        Grid::make(2)
-                            ->schema([
-                                DatePicker::make('tanggal_kirim')
-                                    ->label('Tanggal Kirim')
-                                    ->displayFormat('l, d F Y')
-                                    ->native(false)
-                                    ->prefixIcon('heroicon-o-calendar-days')
-                                    ->default(now())
-                                    ->required(),
+                        Grid::make(2)->schema([
+                            DatePicker::make('tanggal_kirim')
+                                ->label('Tanggal Kirim')
+                                ->displayFormat('l, d F Y')
+                                ->native(false)
+                                ->prefixIcon('heroicon-o-calendar-days')
+                                ->default(now())
+                                ->required(),
 
-                                TextInput::make('code')
-                                    ->label('Kode Dokumen (Scan QR)')
-                                    ->placeholder('Contoh: 5000001269086PLJ072514072025')
-                                    ->prefixIcon('heroicon-o-qr-code')
-                                    ->autoFocus()
-                                    ->live()
-                                    ->required()
-                                    ->afterStateUpdated(function ($state, callable $set, callable $get, \Filament\Forms\Get $form) {
-                                        $items = [];
+                            TextInput::make('code')
+                                ->label('Kode Dokumen (Scan QR)')
+                                ->placeholder('Contoh: 5000001269086PLJ072514072025')
+                                ->prefixIcon('heroicon-o-qr-code')
+                                ->autofocus() // autofocus standar
+                                ->live(debounce: 500) // hindari query tiap ketik
+                                ->required()
+                                ->minLength(15)
+                                ->unique(
+                                    table: ApprovalVpKirim::class,
+                                    column: 'code',
+                                    ignoreRecord: true
+                                )
+                                // RULE: jika 14 digit, larang & jelaskan jenis (103/105/124)
+                                ->rule(fn() => function (string $attribute, $value, \Closure $fail) {
+                                    $v = trim((string) $value);
+                                    if ($v === '')
+                                        return;
 
-                                        // Cari di GRS
-                                        $grs = GoodsReceiptSlip::with('goodsReceiptSlipDetails')
-                                            ->where('code', $state)
-                                            ->first();
+                                    // Jika 14 digit → bukan Kode Dokumen DO
+                                    if (preg_match('/^\d{14}$/', $v)) {
+                                        $is103 = DB::table('transmittal_kirims')->where('code_103', $v)->exists();
+                                        $is105 = DB::table('goods_receipt_slips')->where('code_105', $v)->exists();
+                                        $is124 = DB::table('return_delivery_to_vendors')->where('code_124', $v)->exists();
 
-                                        if ($grs) {
-                                            $grsItems = $grs->goodsReceiptSlipDetails->map(function ($item) {
-                                                return [
-                                                    'status' => '105', // GRS
-                                                    'item_no' => $item->item_no,
-                                                    'material_code' => $item->material_code ?? '-',
-                                                    'description' => $item->description,
-                                                    'quantity' => $item->quantity,
-                                                    'uoi' => $item->uoi,
-                                                ];
-                                            })->toArray();
-
-                                            $items = array_merge($items, $grsItems);
+                                        if ($is103) {
+                                            $fail('Nilai ini adalah Kode 103 (QC), bukan Kode Dokumen DO.');
+                                            return;
                                         }
-
-                                        // Cari di RDTV
-                                        $rdtv = ReturnDeliveryToVendor::with('returnDeliveryToVendorDetails')
-                                            ->where('code', $state)
-                                            ->first();
-
-                                        if ($rdtv) {
-                                            $rdtvItems = $rdtv->returnDeliveryToVendorDetails->map(function ($item) {
-                                                return [
-                                                    'status' => '124', // RDTV
-                                                    'item_no' => $item->item_no,
-                                                    'material_code' => $item->material_code ?? '-',
-                                                    'description' => $item->description,
-                                                    'quantity' => $item->quantity,
-                                                    'uoi' => $item->uoi,
-                                                ];
-                                            })->toArray();
-
-                                            $items = array_merge($items, $rdtvItems);
+                                        if ($is105) {
+                                            $fail('Nilai ini adalah Kode 105 (GRS), bukan Kode Dokumen DO.');
+                                            return;
                                         }
-
-                                        if (empty($items)) {
-                                            // Tampilkan notifikasi error di tempat
-                                            Notification::make()
-                                                ->title('Kode dokumen tidak ditemukan')
-                                                ->danger()
-                                                ->send();
-
-                                            // Kosongkan repeater
-                                            $set('items', []);
-
+                                        if ($is124) {
+                                            $fail('Nilai ini adalah Kode 124 (RDTV), bukan Kode Dokumen DO.');
                                             return;
                                         }
 
-                                        // Set ke repeater
-                                        $set('items', $items);
-                                    }),
+                                        $fail('Nilai 14 digit terdeteksi. Itu bukan Kode Dokumen DO.');
+                                        return;
+                                    }
+                                })
+                                ->afterStateUpdated(function ($state, callable $set) {
+                                    $code = trim((string) $state);
 
-                                Hidden::make('created_by')->default(Auth::id()),
-                            ]),
+                                    // Reset ketika kosong
+                                    if ($code === '') {
+                                        $set('items', []);
+                                        return;
+                                    }
+
+                                    // Jangan query kalau terlalu pendek
+                                    if (mb_strlen($code) < 15) {
+                                        Notification::make()
+                                            ->title('Kode Dokumen terlalu pendek')
+                                            ->body('Minimal 15 karakter. 14 digit adalah Kode 103/105/124 dan bukan Kode Dokumen DO.')
+                                            ->warning()
+                                            ->send();
+                                        $set('items', []);
+                                        return;
+                                    }
+
+                                    // Jika user tetap memasukkan 14 digit via paste → bersihkan & beri tahu
+                                    if (preg_match('/^\d{14}$/', $code)) {
+                                        $set('code', null);
+                                        Notification::make()
+                                            ->title('Bukan Kode Dokumen DO')
+                                            ->body('Nilai 14 digit terdeteksi (103/105/124). Masukkan Kode Dokumen DO yang benar.')
+                                            ->danger()
+                                            ->send();
+                                        $set('items', []);
+                                        return;
+                                    }
+
+                                    // Tarik data dari GRS & RDTV berdasarkan code (DO code)
+                                    $items = [];
+
+                                    $grs = GoodsReceiptSlip::with('goodsReceiptSlipDetails')
+                                        ->where('code', $code) // DO code di GRS
+                                        ->first();
+
+                                    if ($grs) {
+                                        $items = array_merge($items, $grs->goodsReceiptSlipDetails->map(fn($i) => [
+                                            'status' => '105',
+                                            'item_no' => $i->item_no,
+                                            'material_code' => $i->material_code ?? '-',
+                                            'description' => $i->description,
+                                            'quantity' => $i->quantity,
+                                            'uoi' => $i->uoi,
+                                        ])->toArray());
+                                    }
+
+                                    $rdtv = ReturnDeliveryToVendor::with('returnDeliveryToVendorDetails')
+                                        ->where('code', $code) // DO code di RDTV
+                                        ->first();
+
+                                    if ($rdtv) {
+                                        $items = array_merge($items, $rdtv->returnDeliveryToVendorDetails->map(fn($i) => [
+                                            'status' => '124',
+                                            'item_no' => $i->item_no,
+                                            'material_code' => $i->material_code ?? '-',
+                                            'description' => $i->description,
+                                            'quantity' => $i->quantity,
+                                            'uoi' => $i->uoi,
+                                        ])->toArray());
+                                    }
+
+                                    if (empty($items)) {
+                                        Notification::make()
+                                            ->title('Kode dokumen tidak ditemukan')
+                                            ->body('Tidak ada data GRS/RDTV dengan Kode Dokumen tersebut.')
+                                            ->danger()
+                                            ->send();
+                                        $set('items', []);
+                                        return;
+                                    }
+
+                                    $set('items', $items);
+                                })
+                                // Autofocus ekstra (andal) dengan Alpine (berguna setelah redirect create→create)
+                                ->extraAttributes([
+                                    'x-ref' => 'codeInput',
+                                    'x-init' => '$nextTick(() => { ($el.tagName==="INPUT"?$el:$el.querySelector("input"))?.focus() })',
+                                ]),
+
+                            Hidden::make('created_by')->default(Auth::id()),
+                        ]),
                     ]),
 
                 Section::make('Daftar Item')
@@ -144,70 +202,65 @@ class ApprovalVpKirimResource extends Resource
                     ->schema([
                         Repeater::make('items')
                             ->label('')
+                            // Jika Anda menyimpan ke kolom JSON 'items'
+                            ->dehydrated(true)
+                            ->minItems(1)      // WAJIB minimal 1 item
+                            ->required()       // validasi form
                             ->schema([
-                                TextInput::make('item_no')->label('Item No')->disabled()->columnSpan(1),
-                                TextInput::make('material_code')->label('Material Code')->disabled()->columnSpan(1),
-                                TextInput::make('description')->label('Description')->disabled()->columnSpan(4),
-                                TextInput::make('status')->label('Status')->disabled()->columnSpan(1),
-                                TextInput::make('quantity')->label('Quantity')->disabled()->columnSpan(1),
-                                TextInput::make('uoi')->label('UOI')->disabled()->columnSpan(1),
+                                TextInput::make('item_no')->label('Item No')->disabled()->dehydrated(),
+                                TextInput::make('material_code')->label('Material Code')->disabled()->dehydrated(),
+                                TextInput::make('description')->label('Description')->disabled()->dehydrated(),
+                                TextInput::make('status')->label('Status')->disabled()->dehydrated(),
+                                TextInput::make('quantity')->label('Quantity')->disabled()->dehydrated(),
+                                TextInput::make('uoi')->label('UOI')->disabled()->dehydrated(),
                             ])
-                            ->columns(9)
+                            ->columns(6)
                             ->default([])
-                            ->columnSpanFull()
                             ->addable(false)
                             ->deletable(false)
                             ->reorderable(false)
                             ->afterStateHydrated(function ($state, callable $set, callable $get) {
-                                $code = $get('code');
-
-                                if (!$code) {
+                                // Re-hydrate items jika user kembali ke form dengan state code
+                                $code = trim((string) ($get('code') ?? ''));
+                                if ($code === '' || mb_strlen($code) < 15) {
                                     return;
                                 }
 
                                 $items = [];
 
-                                // Cari di GRS
                                 $grs = GoodsReceiptSlip::with('goodsReceiptSlipDetails')
                                     ->where('code', $code)
                                     ->first();
 
                                 if ($grs) {
-                                    $grsItems = $grs->goodsReceiptSlipDetails->map(function ($item) {
-                                        return [
-                                            'status' => '105', // GRS
-                                            'item_no' => $item->item_no,
-                                            'material_code' => $item->material_code ?? '-',
-                                            'description' => $item->description,
-                                            'quantity' => $item->quantity,
-                                            'uoi' => $item->uoi,
-                                        ];
-                                    })->toArray();
-
-                                    $items = array_merge($items, $grsItems);
+                                    $items = array_merge($items, $grs->goodsReceiptSlipDetails->map(fn($i) => [
+                                        'status' => '105',
+                                        'item_no' => $i->item_no,
+                                        'material_code' => $i->material_code ?? '-',
+                                        'description' => $i->description,
+                                        'quantity' => $i->quantity,
+                                        'uoi' => $i->uoi,
+                                    ])->toArray());
                                 }
 
-                                // Cari di RDTV
                                 $rdtv = ReturnDeliveryToVendor::with('returnDeliveryToVendorDetails')
                                     ->where('code', $code)
                                     ->first();
 
                                 if ($rdtv) {
-                                    $rdtvItems = $rdtv->returnDeliveryToVendorDetails->map(function ($item) {
-                                        return [
-                                            'status' => '124', // RDTV
-                                            'item_no' => $item->item_no,
-                                            'material_code' => $item->material_code ?? '-',
-                                            'description' => $item->description,
-                                            'quantity' => $item->quantity,
-                                            'uoi' => $item->uoi,
-                                        ];
-                                    })->toArray();
-
-                                    $items = array_merge($items, $rdtvItems);
+                                    $items = array_merge($items, $rdtv->returnDeliveryToVendorDetails->map(fn($i) => [
+                                        'status' => '124',
+                                        'item_no' => $i->item_no,
+                                        'material_code' => $i->material_code ?? '-',
+                                        'description' => $i->description,
+                                        'quantity' => $i->quantity,
+                                        'uoi' => $i->uoi,
+                                    ])->toArray());
                                 }
 
-                                $set('items', $items);
+                                if (!empty($items)) {
+                                    $set('items', $items);
+                                }
                             }),
                     ]),
             ]);

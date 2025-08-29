@@ -181,18 +181,18 @@ class ApprovalVpKembaliDetailResource extends Resource
                 //
             ])
             ->actions([
-                ActionGroup::make([
-                    Tables\Actions\ViewAction::make(),
-                    Tables\Actions\EditAction::make(),
-                ])
-                    ->icon('heroicon-o-ellipsis-horizontal-circle')
-                    ->color('info')
-                    ->tooltip('Aksi')
+                // ActionGroup::make([
+                //     Tables\Actions\ViewAction::make(),
+                //     Tables\Actions\EditAction::make(),
+                // ])
+                //     ->icon('heroicon-o-ellipsis-horizontal-circle')
+                //     ->color('info')
+                //     ->tooltip('Aksi')
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                // Tables\Actions\BulkActionGroup::make([
+                //     Tables\Actions\DeleteBulkAction::make(),
+                // ]),
             ]);
     }
 
@@ -207,9 +207,9 @@ class ApprovalVpKembaliDetailResource extends Resource
     {
         return [
             'index' => Pages\ListApprovalVpKembaliDetails::route('/'),
-            'create' => Pages\CreateApprovalVpKembaliDetail::route('/create'),
-            'view' => Pages\ViewApprovalVpKembaliDetail::route('/{record}'),
-            'edit' => Pages\EditApprovalVpKembaliDetail::route('/{record}/edit'),
+            // 'create' => Pages\CreateApprovalVpKembaliDetail::route('/create'),
+            // 'view' => Pages\ViewApprovalVpKembaliDetail::route('/{record}'),
+            // 'edit' => Pages\EditApprovalVpKembaliDetail::route('/{record}/edit'),
         ];
     }
 }

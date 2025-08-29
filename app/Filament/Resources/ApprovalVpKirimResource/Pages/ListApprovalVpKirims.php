@@ -13,7 +13,9 @@ class ListApprovalVpKirims extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make(),
+            Actions\CreateAction::make()
+                ->label('Tambah Approval Kirim')
+                ->icon('heroicon-m-plus-circle'),
         ];
     }
 }

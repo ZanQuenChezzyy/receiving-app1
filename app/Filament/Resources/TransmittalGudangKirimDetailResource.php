@@ -75,6 +75,7 @@ class TransmittalGudangKirimDetailResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->poll('3s')
             ->modifyQueryUsing(
                 fn(Builder $query) => $query
                     ->withCount('transmittalGudangTerimaDetails as terima_count')

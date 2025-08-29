@@ -8,7 +8,6 @@ use App\Filament\Resources\TransmittalKirimResource\Pages;
 use App\Filament\Resources\TransmittalKirimResource\RelationManagers;
 use App\Models\DeliveryOrderReceipt;
 use App\Models\TransmittalKirim;
-use Closure;
 use Filament\Forms;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Grid;
@@ -18,7 +17,6 @@ use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
-use Filament\Notifications\Notification;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -33,7 +31,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\DB;
 
 class TransmittalKirimResource extends Resource

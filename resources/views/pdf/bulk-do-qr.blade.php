@@ -60,6 +60,7 @@
             overflow-wrap: break-word;
         }
 
+        /* === Konsisten dengan do-qr.blade.php: QR di kanan, kecil, tanpa inline style === */
         .label-table .qr {
             width: 40px;
             text-align: center;
@@ -73,13 +74,13 @@
             overflow-wrap: normal;
         }
 
-        /* PO No lebih besar (samakan dengan do-qr.blade.php) */
+        /* PO No lebih besar (sama seperti do-qr.blade.php) */
         .po-large {
             font-size: 14px;
             letter-spacing: .2px;
         }
 
-        /* QR kecil agar tidak ganggu layout (samakan) */
+        /* QR kecil agar tidak ganggu layout (sama dengan do-qr.blade.php) */
         .qr-mini {
             width: 34px;
             height: 34px;
@@ -119,7 +120,7 @@
                     : optional($do->locations)->name ?? 'Lokasi Utama (Tidak diketahui)';
                 $location = $locationRaw;
 
-                // Deskripsi: bersihkan newline/tabs → single line, lalu POTONG 25 huruf & non-breaking spaces
+                // Deskripsi: bersihkan newline/tabs → single line, POTONG 25 huruf, &nbsp; agar satu baris
                 $rawDesc = (string) ($detail->description ?? '-');
                 $descFlat = preg_replace('/\s+/u', ' ', str_replace(["\r\n", "\n", "\r", "\t"], ' ', $rawDesc));
                 $desc25 = mb_substr($descFlat, 0, 25);
@@ -150,7 +151,8 @@
                         <td>PO No</td>
                         <td class="col">:</td>
                         <td class="val po-large no-wrap">{{ $poNo }}</td>
-                        <td class="qr" rowspan="8" style="text-align:center; vertical-align: middle;">
+                        {{-- === QR di kanan, konsisten dengan do-qr.blade.php === --}}
+                        <td class="qr" rowspan="8">
                             <img src="{{ $qrItem }}" class="qr-mini">
                         </td>
                     </tr>
@@ -243,6 +245,33 @@
                 </tr>
                 <tr>
                     <td colspan="4" style="text-align: right; padding-top: 6px;">
+                        <img src="{{ $logo }}" style="height: 15px;">
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        {{-- Halaman 2: PO NOMOR Tahun dan Tahapan --}}
+        <div class="page">
+            <table style="width: 100%; max-width: 100%;">
+                <tr>
+                    <td colspan="4" style="padding-bottom: 4px;">
+                        <div
+                            style="border: 1px solid rgb(0, 0, 0); padding: 4px 8px; font-size: 18px; text-align: center; background-color: black;">
+                            <strong style="color: rgb(255, 255, 255);">{{ $poNo }}</strong>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td rowspan="5" style="width: 100px; text-align: center; padding-right: 10px;">
+                        <img src="{{ $qrDo }}" style="width: 90px; height: 90px;">
+                    </td>
+                    <td>Tahapan</td>
+                    <td style="text-align: center;">:</td>
+                    <td>{{ $do->tahapan }}</td>
+                </tr>
+                <tr>
+                    <td colspan="4" style="text-align: left; padding-top: 6px;">
                         <img src="{{ $logo }}" style="height: 15px;">
                     </td>
                 </tr>

@@ -28,6 +28,7 @@ use Illuminate\Support\Facades\Http;
 
 class ItemMonitoring extends BaseWidget
 {
+    protected static ?int $sort = 4;
     protected int|string|array $columnSpan = 'full';
     protected static ?array $cachedHolidays = null;
 
@@ -266,30 +267,16 @@ class ItemMonitoring extends BaseWidget
                     ->trueLabel('Masih Proses')
                     ->falseLabel('Sudah Selesai')
                     ->queries(
-                        true: fn(Builder $q) => $q
-                            ->whereRaw("
-                    NOT EXISTS (
-                        SELECT 1 FROM goods_receipt_slips grs
-                        WHERE grs.delivery_order_receipt_id = delivery_order_receipts.id
-                    )
-                    AND
-                    NOT EXISTS (
-                        SELECT 1 FROM return_delivery_to_vendors rdtv
-                        WHERE rdtv.delivery_order_receipt_id = delivery_order_receipts.id
-                    )
-                "),
-                        false: fn(Builder $q) => $q
-                            ->whereRaw("
-                    EXISTS (
-                        SELECT 1 FROM goods_receipt_slips grs
-                        WHERE grs.delivery_order_receipt_id = delivery_order_receipts.id
-                    )
-                    OR
-                    EXISTS (
-                        SELECT 1 FROM return_delivery_to_vendors rdtv
-                        WHERE rdtv.delivery_order_receipt_id = delivery_order_receipts.id
-                    )
-                "),
+                        // Masih Proses = belum GRS & belum RDTV
+                        true: fn(Builder $q) => $q->where(function ($qq) {
+                            $qq->doesntHave('goodsReceiptSlips')
+                                ->doesntHave('returnDeliveryToVendors');
+                        }),
+                        // Sudah Selesai = sudah GRS ATAU sudah RDTV
+                        false: fn(Builder $q) => $q->where(function ($qq) {
+                            $qq->whereHas('goodsReceiptSlips')
+                                ->orWhereHas('returnDeliveryToVendors');
+                        }),
                         blank: fn(Builder $q) => $q,
                     )
                     ->native(false),
@@ -301,36 +288,17 @@ class ItemMonitoring extends BaseWidget
                     ->trueLabel('Sudah')
                     ->falseLabel('Belum')
                     ->queries(
-                        // “Sudah 103” = punya kirim & punya kembali
-                        true: fn(Builder $q) => $q->whereRaw("
-                EXISTS (
-                    SELECT 1
-                    FROM transmittal_kirims tk
-                    WHERE tk.delivery_order_receipt_id = delivery_order_receipts.id
-                )
-                AND EXISTS (
-                    SELECT 1
-                    FROM transmittal_kirims tk
-                    JOIN transmittal_kembali_details tkd ON tkd.transmittal_kirim_id = tk.id
-                    JOIN transmittal_kembalis tkk ON tkk.id = tkd.transmittal_kembali_id
-                    WHERE tk.delivery_order_receipt_id = delivery_order_receipts.id
-                )
-            "),
-                        // “Belum 103” = belum kirim ATAU sudah kirim tapi belum kembali
-                        false: fn(Builder $q) => $q->whereRaw("
-                NOT EXISTS (
-                    SELECT 1
-                    FROM transmittal_kirims tk
-                    WHERE tk.delivery_order_receipt_id = delivery_order_receipts.id
-                )
-                OR NOT EXISTS (
-                    SELECT 1
-                    FROM transmittal_kirims tk
-                    JOIN transmittal_kembali_details tkd ON tkd.transmittal_kirim_id = tk.id
-                    JOIN transmittal_kembalis tkk ON tkk.id = tkd.transmittal_kembali_id
-                    WHERE tk.delivery_order_receipt_id = delivery_order_receipts.id
-                )
-            "),
+                        // Sudah 103 = ada kirim & ada kembali
+                        true: fn(Builder $q) => $q->whereHas('transmittalKirims')
+                            ->whereHas('transmittalKirims.transmittalKembaliDetails.transmittalKembali'),
+                        // Belum 103 = (tidak ada kirim) ATAU (ada kirim tapi belum kembali)
+                        false: fn(Builder $q) => $q->where(function ($qq) {
+                            $qq->doesntHave('transmittalKirims')
+                                ->orWhere(function ($qx) {
+                                    $qx->whereHas('transmittalKirims')
+                                        ->doesntHave('transmittalKirims.transmittalKembaliDetails.transmittalKembali');
+                                });
+                        }),
                         blank: fn(Builder $q) => $q,
                     )
                     ->native(false),
@@ -342,18 +310,8 @@ class ItemMonitoring extends BaseWidget
                     ->trueLabel('Sudah')
                     ->falseLabel('Belum')
                     ->queries(
-                        true: fn(Builder $q) => $q->whereRaw("
-                EXISTS (
-                    SELECT 1 FROM goods_receipt_slips grs
-                    WHERE grs.delivery_order_receipt_id = delivery_order_receipts.id
-                )
-            "),
-                        false: fn(Builder $q) => $q->whereRaw("
-                NOT EXISTS (
-                    SELECT 1 FROM goods_receipt_slips grs
-                    WHERE grs.delivery_order_receipt_id = delivery_order_receipts.id
-                )
-            "),
+                        true: fn(Builder $q) => $q->whereHas('goodsReceiptSlips'),
+                        false: fn(Builder $q) => $q->doesntHave('goodsReceiptSlips'),
                         blank: fn(Builder $q) => $q,
                     )
                     ->native(false),
@@ -365,18 +323,8 @@ class ItemMonitoring extends BaseWidget
                     ->trueLabel('Sudah')
                     ->falseLabel('Belum')
                     ->queries(
-                        true: fn(Builder $q) => $q->whereRaw("
-                EXISTS (
-                    SELECT 1 FROM return_delivery_to_vendors rdtv
-                    WHERE rdtv.delivery_order_receipt_id = delivery_order_receipts.id
-                )
-            "),
-                        false: fn(Builder $q) => $q->whereRaw("
-                NOT EXISTS (
-                    SELECT 1 FROM return_delivery_to_vendors rdtv
-                    WHERE rdtv.delivery_order_receipt_id = delivery_order_receipts.id
-                )
-            "),
+                        true: fn(Builder $q) => $q->whereHas('returnDeliveryToVendors'),
+                        false: fn(Builder $q) => $q->doesntHave('returnDeliveryToVendors'),
                         blank: fn(Builder $q) => $q,
                     )
                     ->native(false),

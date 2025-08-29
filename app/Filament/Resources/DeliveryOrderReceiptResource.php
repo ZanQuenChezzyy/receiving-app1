@@ -18,11 +18,14 @@ use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Filament\Support\Enums\FontWeight;
 use Filament\Tables;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\ActionGroup;
 use Filament\Tables\Actions\BulkAction;
+use Filament\Tables\Actions\BulkActionGroup;
 use Filament\Tables\Actions\DeleteAction;
+use Filament\Tables\Actions\DeleteBulkAction;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Enums\ActionsPosition;
 use Filament\Tables\Grouping\Group as GroupingGroup;
@@ -373,6 +376,7 @@ class DeliveryOrderReceiptResource extends Resource
                     ->searchable()
                     ->color('primary')
                     ->icon('heroicon-s-document-text')
+                    ->weight(FontWeight::Bold)
                     ->description(fn($record) => 'No. DO: ' . ($record->nomor_do ?? '-')),
 
                 Tables\Columns\TextColumn::make('received_date')
@@ -429,6 +433,16 @@ class DeliveryOrderReceiptResource extends Resource
                     ->limit(15)
                     ->searchable(),
 
+                Tables\Columns\TextColumn::make('do_code')
+                    ->label('Kode Dokumen')
+                    ->copyable()
+                    ->copyMessage('Document code copied')
+                    ->copyMessageDuration(1500)
+                    ->searchable()
+                    ->icon('heroicon-s-qr-code')
+                    ->color('primary')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 Tables\Columns\TextColumn::make('post_103')
                     ->label('Tanggal Post 103')
                     ->placeholder('Belum Posting 103')
@@ -450,10 +464,12 @@ class DeliveryOrderReceiptResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_at')
+                    ->label('Tanggal Dibuat')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('updated_at')
+                    ->label('Tanggal Diperbarui')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -501,6 +517,43 @@ class DeliveryOrderReceiptResource extends Resource
                             ->success()
                             ->send();
                     }),
+                Action::make('UndoPost103')
+                    ->label('UNDO 103')
+                    ->icon('heroicon-o-arrow-uturn-left')
+                    ->color('danger')
+                    ->outlined()
+                    ->button()
+                    ->requiresConfirmation()
+                    ->modalHeading('Batalkan POST 103')
+                    ->modalDescription('Tindakan ini akan mengosongkan tanggal & waktu POST 103 pada dokumen ini.')
+                    // Hanya user role "Staff" yang bisa melihat tombol ini
+                    ->visible(fn() => optional(Auth::user())->hasRole(['Developer', 'Super Admin', 'Staff']))
+                    // Hanya tampil jika sebelumnya SUDAH di-POST (ada nilai)
+                    ->hidden(fn(DeliveryOrderReceipt $record) => blank($record->post_103))
+                    // Backup guard di UI
+                    ->disabled(fn(DeliveryOrderReceipt $record) => blank($record->post_103))
+                    ->action(function (DeliveryOrderReceipt $record) {
+                        // Double guard: jika belum pernah POST 103, hentikan
+                        if (blank($record->post_103)) {
+                            Notification::make()
+                                ->title('Tidak ada POST 103')
+                                ->body('Dokumen ini belum memiliki waktu POST 103.')
+                                ->warning()
+                                ->send();
+
+                            return;
+                        }
+
+                        DB::transaction(function () use ($record) {
+                            $record->update(['post_103' => null]);
+                        });
+
+                        Notification::make()
+                            ->title('Berhasil')
+                            ->body('POST 103 telah dibatalkan. Kolom tanggal & waktu dikosongkan.')
+                            ->success()
+                            ->send();
+                    }),
                 ActionGroup::make([
                     Action::make('Cetak')
                         ->label('Label Material')
@@ -531,29 +584,34 @@ class DeliveryOrderReceiptResource extends Resource
                     ->tooltip('Aksi'),
             ], position: ActionsPosition::AfterCells)
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
-                BulkAction::make('cetak_qr')
+
+                BulkActionGroup::make([
+                    BulkAction::make('cetak_qr')
+                        ->label('Cetak Label Material')
+                        ->icon('heroicon-o-printer')
+                        ->action(function (Collection $records) {
+                            $ids = $records->pluck('id')->toArray();
+                            return redirect()->route('qr.bulk.print', ['ids' => implode(',', $ids)]);
+                        })
+                        ->color('gray')
+                        ->deselectRecordsAfterCompletion()
+                        ->openUrlInNewTab(),
+                    BulkAction::make('cetak_kode_dokumen')
+                        ->label('Cetak Kode Dokumen')
+                        ->icon('heroicon-o-qr-code')
+                        ->color('gray')
+                        ->deselectRecordsAfterCompletion()
+                        ->openUrlInNewTab()
+                        ->action(function (Collection $records) {
+                            $ids = $records->pluck('id')->toArray();
+                            return redirect()->route('qr.bulk.print-code-only', ['ids' => implode(',', $ids)]);
+                        }),
+                ])
                     ->label('Cetak Dipilih')
-                    ->icon('heroicon-o-printer')
-                    ->action(function (Collection $records) {
-                        $ids = $records->pluck('id')->toArray();
-                        return redirect()->route('qr.bulk.print', ['ids' => implode(',', $ids)]);
-                    })
-                    ->color('gray')
-                    ->deselectRecordsAfterCompletion()
-                    ->openUrlInNewTab(),
-                BulkAction::make('cetak_kode_dokumen')
-                    ->label('Cetak Kode Dokumen (Dipilih)')
-                    ->icon('heroicon-o-qr-code')
-                    ->color('gray')
-                    ->deselectRecordsAfterCompletion()
-                    ->openUrlInNewTab()
-                    ->action(function (Collection $records) {
-                        $ids = $records->pluck('id')->toArray();
-                        return redirect()->route('qr.bulk.print-code-only', ['ids' => implode(',', $ids)]);
-                    }),
+                    ->icon('heroicon-m-printer'),
             ]);
     }
 

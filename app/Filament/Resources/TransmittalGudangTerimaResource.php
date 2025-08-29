@@ -179,7 +179,6 @@ class TransmittalGudangTerimaResource extends Resource
                             ->relationship()         // penting: ini repeater relasi -> disimpan otomatis
                             ->label('')
                             ->addable(false)         // diisi dari hasil scan
-                            ->deletable(false)
                             ->reorderable(false)
                             ->afterStateHydrated(function (callable $set, ?array $state) {
                                 // Kumpulkan semua ID sumber dari state repeater

@@ -25,14 +25,15 @@
 
         table {
             font-size: 10px;
-            width: 100%;
-            border-collapse: collapse;
+            font-family: Helvetica;
             font-weight: bold;
             color: black;
+            line-height: 1.1;
         }
 
         td {
             padding: 2px;
+            vertical-align: top;
         }
 
         /* tambahan untuk halaman 2 supaya konsisten  */
@@ -67,7 +68,7 @@
 
     {{-- Halaman 1: QR utama DO (tetap) --}}
     <div class="page">
-        <table style="border: 1px solid black;">
+        <table style="border-collapse: collapse; border: 1px solid black; width: 100%; max-width: 100%;">
             <tr>
                 <td colspan="4" style="padding-bottom: 4px;">
                     <div
@@ -170,6 +171,10 @@
             <tr>
                 <td colspan="3" style="text-align: left; padding-top: 6px;">
                     <img src="{{ $logo }}" style="height: 15px;">
+                    <div style="font-size: 7px; margin-top: 2px;">
+                        QR Dicetak Menggunakan Sistem<br>
+                        ALEX MOKONDO (RECEIVING)
+                    </div>
                 </td>
             </tr>
         </table>

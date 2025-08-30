@@ -329,6 +329,10 @@
             <tr>
                 <td colspan="3" style="text-align: left; padding-top: 6px;">
                     <img src="{{ $logo }}" style="height: 15px;">
+                    <div style="font-size: 7px; margin-top: 2px;">
+                        QR Dicetak Menggunakan Sistem<br>
+                        ALEX MOKONDO (RECEIVING)
+                    </div>
                 </td>
             </tr>
         </table>

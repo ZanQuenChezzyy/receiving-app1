@@ -5,17 +5,68 @@ namespace App\Filament\Widgets;
 use App\Filament\Widgets\Concerns\ReceivingChartHelpers;
 use Carbon\CarbonInterface;
 use Filament\Widgets\ChartWidget;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class Cycle103CumulativeChart extends ChartWidget
 {
     use ReceivingChartHelpers;
-
-    protected static ?string $heading = '103 Kumulatif: Kirim vs Kembali';
+    protected static ?string $heading = null; // ⬅️ biar dinamis
     protected static ?int $sort = 3;
     protected static ?string $maxHeight = '279px';
-    public ?string $filter = 'month';
+    public ?string $filter = 'day';
+
+    /** Heading dinamis (cocok dengan parent signature) */
+    public function getHeading(): string|Htmlable|null
+    {
+        $now = Carbon::today();
+
+        $period = [
+            'day' => 'Harian (30 hari)',
+            'week' => 'Mingguan (12 minggu)',
+            'month' => 'Bulanan (Jan-Des ' . $now->year . ')',
+            'year' => 'Tahunan (5 tahun)',
+        ][$this->filter] ?? 'Periode';
+
+        return "103 Kirim & Kembali {$period}";
+    }
+
+    /** Deskripsi dinamis (cocok dengan parent signature) */
+    public function getDescription(): string|Htmlable|null
+    {
+        $now = Carbon::today();
+
+        switch ($this->filter) {
+            case 'day':
+                $start = $now->copy()->subDays(29);
+                $end = $now;
+                $periode = $start->format('d M Y') . ' - ' . $end->format('d M Y');
+                $bucket = 'per hari';
+                break;
+
+            case 'week':
+                $start = $now->copy()->subWeeks(11)->startOfWeek(CarbonInterface::MONDAY);
+                $end = $now->copy()->endOfWeek(CarbonInterface::SUNDAY);
+                $periode = $start->format('d M Y') . ' - ' . $end->format('d M Y');
+                $bucket = 'per minggu (ISO)';
+                break;
+
+            case 'year':
+                $periode = ($now->year - 4) . ' - ' . $now->year;
+                $bucket = 'per tahun';
+                break;
+
+            case 'month':
+            default:
+                $periode = 'Jan - Des ' . $now->year;
+                $bucket = 'per bulan';
+                $bulanIni = $now->translatedFormat('F Y'); // contoh: "Agustus 2025"
+                return "Untuk periode {$periode}, menampilkan kumulatif kirim & kembali {$bucket}. Bulan ini: {$bulanIni}.";
+        }
+
+        return "Untuk periode {$periode}, menampilkan kumulatif kirim & kembali {$bucket}.";
+    }
 
     protected function getFilters(): ?array
     {

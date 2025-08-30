@@ -10,13 +10,71 @@ use Filament\Widgets\ChartWidget;
 use Illuminate\Support\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Contracts\Support\Htmlable;
+use Closure;
 
 class DoGrsRdtvTrendChart extends ChartWidget
 {
-    protected static ?string $heading = 'Tren: DO vs 105 (GRS) vs 124 (RDTV)';
+    protected static ?string $heading = null;
     protected static ?int $sort = 2;
     protected static ?string $maxHeight = '279px';
     public ?string $filter = 'month';
+
+    /** Heading dinamis (harus cocok dengan parent signature) */
+    public function getHeading(): string|Htmlable|null
+    {
+        $now = Carbon::today();
+
+        $period = [
+            'day' => 'Harian (30 hari)',
+            'week' => 'Mingguan (12 minggu)',
+            'month' => 'Bulanan (Jan-Des ' . $now->year . ')',
+            'year' => 'Tahunan (5 tahun)',
+        ][$this->filter] ?? 'Periode';
+
+        return "Tren Dokumen {$period}";
+    }
+
+    /** Deskripsi dinamis (harus cocok dengan parent signature) */
+    public function getDescription(): string|Htmlable|null
+    {
+        $now = Carbon::today();
+
+        switch ($this->filter) {
+            case 'day':
+                $start = $now->copy()->subDays(29);
+                $end = $now;
+                $periode = $start->format('d M Y') . ' - ' . $end->format('d M Y');
+                $bucket = 'per hari';
+                break;
+
+            case 'week':
+                $start = $now->copy()->subWeeks(11)->startOfWeek(CarbonInterface::MONDAY);
+                $end = $now->copy()->endOfWeek(CarbonInterface::SUNDAY);
+                $periode = $start->format('d M Y') . ' - ' . $end->format('d M Y');
+                $bucket = 'per minggu (ISO)';
+                break;
+
+            case 'year':
+                $periode = ($now->year - 4) . ' - ' . $now->year;
+                $bucket = 'per tahun';
+                break;
+
+            case 'month':
+            default:
+                $periode = 'Jan - Des ' . $now->year;
+                $bucket = 'per bulan';
+                $bulanIni = $now->translatedFormat('F Y'); // contoh: "Agustus 2025"
+                break;
+        }
+
+        $desc = "Untuk periode {$periode}, menampilkan jumlah dokumen {$bucket}.";
+        if ($this->filter === 'month') {
+            $desc .= " Bulan ini: {$bulanIni}.";
+        }
+
+        return $desc;
+    }
 
     protected function getFilters(): ?array
     {
@@ -27,6 +85,20 @@ class DoGrsRdtvTrendChart extends ChartWidget
             'year' => 'Tahunan',
         ];
     }
+    private const ID_SHORT_MONTHS = [
+        1 => 'Jan',
+        2 => 'Feb',
+        3 => 'Mar',
+        4 => 'Apr',
+        5 => 'Mei',
+        6 => 'Jun',
+        7 => 'Jul',
+        8 => 'Agt',
+        9 => 'Sep',
+        10 => 'Okt',
+        11 => 'Nov',
+        12 => 'Des',
+    ];
 
     protected function getData(): array
     {
@@ -62,13 +134,18 @@ class DoGrsRdtvTrendChart extends ChartWidget
                 $useDateOnly = false;
                 break;
 
-            case 'month': // BULANAN: Jan–Des TAHUN BERJALAN (per BULAN)
+            case 'month':
             default:
                 $year = $now->year;
                 $start = Carbon::create($year, 1, 1)->startOfDay();
                 $end = Carbon::create($year, 12, 31)->endOfDay();
-                $keys = $this->monthlyKeys($start, $end); // ['Y-m' 12 elemen]
-                $labels = array_map(fn($m) => Carbon::createFromFormat('Y-m', $m)->translatedFormat('M'), $keys);
+
+                $keys = $this->monthlyKeys($start, $end); // ['YYYY-MM']
+                $labels = array_map(function ($ym) {
+                    $m = (int) substr($ym, 5, 2); // 'YYYY-MM' -> MM
+                    return self::ID_SHORT_MONTHS[$m] ?? $ym;
+                }, $keys);
+
                 $groupExpr = "DATE_FORMAT(%s, '%Y-%m')";
                 $useDateOnly = false;
                 break;

@@ -20,7 +20,6 @@ class ReceivingStats extends BaseWidget
     protected int|string|array $columnSpan = 'full';
     protected static ?array $cachedHolidays = null;
 
-
     protected function getStats(): array
     {
         $today = Carbon::today();
@@ -216,20 +215,23 @@ class ReceivingStats extends BaseWidget
             ? ('Libur nasional terhitung: ' . implode(', ', $holidaysInWindow))
             : 'Tidak ada libur nasional dalam periode';
 
+        $monthLabel = $now->translatedFormat('F Y');   // contoh: "Agustus 2025"
+        $monthShort = $now->translatedFormat('F');     // contoh: "Agustus"
+
         return [
-            Stat::make('DO diterima — hari ini', number_format($doToday))
-                ->description('Bulan berjalan (MTD): ' . number_format($doMtd) . ' DO')
+            Stat::make('DO diterima - hari ini', number_format($doToday))
+                ->description('Bulan ini: ' . number_format($doMtd) . ' Delivery Order')   // ⬅️ was: Bulan berjalan (MTD)
                 ->descriptionIcon('heroicon-m-calendar-days')
                 ->chart($chartDo)
                 ->color('primary')
-                ->extraAttributes(['title' => 'MTD = Month-To-Date (bulan berjalan)']),
+                ->extraAttributes(['title' => 'Bulan ini (month-to-date)']),
 
-            Stat::make('103 selesai — bulan berjalan', $pct103 . '%')
-                ->description($do103DoneMtd . ' dari ' . $doWithKirimMtd . ' DO (bulan berjalan / MTD)')
+            Stat::make('103 selesai — bulan ini: ' . $monthShort, $pct103 . '%') // ⬅️ judul lebih natural
+                ->description($do103DoneMtd . ' dari ' . $doWithKirimMtd . ' Delivery Order (bulan ini)')
                 ->descriptionIcon('heroicon-m-check-badge')
                 ->chart($chart103Done)
                 ->color($color103Rate)
-                ->extraAttributes(['title' => 'MTD = Month-To-Date (bulan berjalan)']),
+                ->extraAttributes(['title' => 'Bulan ini (month-to-date)']),
 
             Stat::make('Outstanding 103 (belum kembali)', number_format($out103))
                 ->description('Sudah kirim QC, dokumen belum kembali (103)')
@@ -243,12 +245,12 @@ class ReceivingStats extends BaseWidget
                 ->chart($chartOutProses)
                 ->color($colorOutProses),
 
-            Stat::make('105 (GRS) — bulan berjalan', number_format($grsMtd))
-                ->description('124 (RDTV) — bulan berjalan: ' . number_format($rdtvMtd))
+            Stat::make('105 (GRS) — bulan ini: ' . $monthShort, number_format($grsMtd))
+                ->description('124 (RDTV) - bulan ini: ' . number_format($rdtvMtd))
                 ->descriptionIcon('heroicon-m-arrows-right-left')
-                ->chart($chart105) // kalau mau gabung, jumlahkan $chart105 dan $chart124 per indeks
+                ->chart($chart105)
                 ->color('info')
-                ->extraAttributes(['title' => 'MTD = Month-To-Date (bulan berjalan)']),
+                ->extraAttributes(['title' => 'Bulan ini (month-to-date)']),
 
             Stat::make('Rata-rata lead time 103 (hari kerja)', $avgLead103 . ' hari')
                 ->description('14 hari terakhir, Senin - Jumat')

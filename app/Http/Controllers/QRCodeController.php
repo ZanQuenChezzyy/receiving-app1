@@ -23,7 +23,7 @@ class QRCodeController extends Controller
         $qrDo = base64_encode(QrCode::size(200)->generate($qrContent));
         $qrDo = 'data:image/png;base64,' . $qrDo;
 
-        $logoPath = public_path('img/logo-pupuk-kaltim.png');
+        $logoPath = public_path('img/logo-pupuk-kaltim-hitam.png');
         $logoBase64 = 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath));
 
         // QR per item
@@ -75,7 +75,7 @@ class QRCodeController extends Controller
             ];
         }
 
-        $logoPath = public_path('img/logo-pupuk-kaltim.png');
+        $logoPath = public_path('img/logo-pupuk-kaltim-hitam.png');
         $logoBase64 = 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath));
 
         $pdf = Pdf::loadView('pdf.bulk-do-qr', [
@@ -98,7 +98,7 @@ class QRCodeController extends Controller
         $qrContent = $nomorPo . $nomorDo . $tanggal;
         $qrDo = 'data:image/png;base64,' . base64_encode(QrCode::size(200)->generate($qrContent));
 
-        $logoPath = public_path('img/logo-pupuk-kaltim.png');
+        $logoPath = public_path('img/logo-pupuk-kaltim-hitam.png');
         $logoBase64 = 'data:image/png;base64,' . base64_encode(@file_get_contents($logoPath) ?: '');
 
         $pdf = Pdf::loadView('pdf.do-qr-code-only', [
@@ -132,7 +132,7 @@ class QRCodeController extends Controller
             ];
         }
 
-        $logoPath = public_path('img/logo-pupuk-kaltim.png');
+        $logoPath = public_path('img/logo-pupuk-kaltim-hitam.png');
         $logoBase64 = 'data:image/png;base64,' . base64_encode(@file_get_contents($logoPath) ?: '');
 
         $pdf = Pdf::loadView('pdf.bulk-do-qr-code-only', [

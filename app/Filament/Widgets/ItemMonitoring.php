@@ -25,6 +25,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Filament\Support\Enums\MaxWidth;
 
 class ItemMonitoring extends BaseWidget
 {
@@ -337,13 +338,19 @@ class ItemMonitoring extends BaseWidget
                     ->button()
                     ->color('gray')
                     ->icon('heroicon-m-eye')
+                    ->modalWidth(MaxWidth::SevenExtraLarge)
                     ->mountUsing(function (DeliveryOrderReceipt $record) {
                         $record->loadMissing([
-                            'transmittalKirims.transmittalKembaliDetails.transmittalKembali:id,tanggal_kembali',
+                            // existing loads…
+                            'deliveryOrderReceiptDetails:id,delivery_order_receipt_id',
                             'goodsReceiptSlips:id,delivery_order_receipt_id,tanggal_terbit',
-                            'goodsReceiptSlips.goodsReceiptSlipDetails:id,goods_receipt_slip_id,item_no,material_code,description',
+                            'goodsReceiptSlips.goodsReceiptSlipDetails:id,goods_receipt_slip_id',
+                            'goodsReceiptSlips.transmittalGudangKirims:id,goods_receipt_slip_id,tanggal_kirim',
+                            'goodsReceiptSlips.transmittalGudangKirims.transmittalGudangTerimas:id,transmittal_gudang_kirim_id,tanggal_terima',
                             'returnDeliveryToVendors:id,delivery_order_receipt_id,tanggal_terbit',
-                            'returnDeliveryToVendors.returnDeliveryToVendorDetails:id,return_delivery_to_vendor_id,item_no,material_code,description',
+                            'returnDeliveryToVendors.returnDeliveryToVendorDetails:id,return_delivery_to_vendor_id',
+                            'transmittalKirims.transmittalKembaliDetails.transmittalKembali:id,tanggal_kembali',
+                            'purchaseOrderTerbits.materialIssuedRequests:id,purchase_order_terbit_id,tanggal',
                         ]);
                     })
                     ->infolist(fn(DeliveryOrderReceipt $record) => [
@@ -368,7 +375,8 @@ class ItemMonitoring extends BaseWidget
                             ->description('Menampilkan status proses penerimaan dan transmittal dokumen.')
                             ->collapsible()
                             ->schema([
-                                Grid::make(3)->schema([
+                                Grid::make(5)->schema([
+                                    // ===== Receiving & QC (103) =====
                                     TextEntry::make('received_date')
                                         ->label('Tanggal Diterima')
                                         ->state(
@@ -399,6 +407,7 @@ class ItemMonitoring extends BaseWidget
                                         )
                                         ->color(fn($state) => str_contains($state, 'Belum') ? 'danger' : null),
 
+                                    // ===== Approval VP =====
                                     TextEntry::make('tanggal_kirim_approval_vp')
                                         ->label('Tanggal Kirim Approval VP')
                                         ->state(function (DeliveryOrderReceipt $record) {
@@ -410,16 +419,61 @@ class ItemMonitoring extends BaseWidget
                                     TextEntry::make('tanggal_kembali_approval_vp')
                                         ->label('Tanggal Kembali Approval VP')
                                         ->state(function (DeliveryOrderReceipt $record) {
-                                            $tgl = ApprovalVpKembali::query()
-                                                ->whereIn('id', function ($q) use ($record) {
-                                                    $q->select('approval_vp_kembali_id')
-                                                        ->from('approval_vp_kembali_details')
-                                                        ->where('code', $record->do_code);
-                                                })
-                                                ->value('tanggal_kembali');
-                                            return $tgl ? Carbon::parse($tgl)->translatedFormat('l, d F Y') : 'Belum dikirim';
+                                            $tgl = \App\Models\ApprovalVpKembaliDetail::query()
+                                                ->where('code', $record->do_code)
+                                                ->join('approval_vp_kembalis as avk', 'avk.id', '=', 'approval_vp_kembali_details.approval_vp_kembali_id')
+                                                ->min('avk.tanggal_kembali');
+                                            return $tgl ? Carbon::parse($tgl)->translatedFormat('l, d F Y') : 'Belum kembali';
                                         })
                                         ->color(fn($state) => str_contains($state, 'Belum') ? 'danger' : null),
+
+                                    // ===== 105 & 124 =====
+                                    TextEntry::make('tanggal_terbit_grs')
+                                        ->label('Tanggal Terbit GRS (105)')
+                                        ->state(function (DeliveryOrderReceipt $record) {
+                                            $tgl = optional($record->goodsReceiptSlips)->min('tanggal_terbit');
+                                            return $tgl ? Carbon::parse($tgl)->translatedFormat('l, d F Y') : 'Belum GRS';
+                                        })
+                                        ->color(fn($state) => str_contains($state, 'Belum') ? 'danger' : null),
+
+                                    TextEntry::make('tanggal_terbit_rdtv')
+                                        ->label('Tanggal Terbit RDTV (124)')
+                                        ->state(function (DeliveryOrderReceipt $record) {
+                                            $tgl = optional($record->returnDeliveryToVendors)->min('tanggal_terbit');
+                                            return $tgl ? Carbon::parse($tgl)->translatedFormat('l, d F Y') : 'Tidak RDTV';
+                                        })
+                                        ->color(fn($state) => str_contains($state, 'Belum') ? 'gray' : null),
+
+                                    // ===== Transmittal Gudang =====
+                                    TextEntry::make('tanggal_kirim_gudang')
+                                        ->label('Tanggal Kirim Gudang')
+                                        ->state(function (DeliveryOrderReceipt $record) {
+                                            $tgl = $record->goodsReceiptSlips
+                                                ->flatMap(fn($g) => $g->transmittalGudangKirims)
+                                                ->min('tanggal_kirim');
+                                            return $tgl ? Carbon::parse($tgl)->translatedFormat('l, d F Y') : 'Belum dikirim';
+                                        })
+                                        ->color(fn($state) => str_contains($state, 'Belum') ? 'warning' : null),
+
+                                    TextEntry::make('tanggal_terima_gudang')
+                                        ->label('Tanggal Terima Gudang')
+                                        ->state(function (DeliveryOrderReceipt $record) {
+                                            $tgl = $record->goodsReceiptSlips
+                                                ->flatMap(fn($g) => $g->transmittalGudangKirims)
+                                                ->flatMap(fn($k) => $k->transmittalGudangTerimas)
+                                                ->min('tanggal_terima');
+                                            return $tgl ? Carbon::parse($tgl)->translatedFormat('l, d F Y') : 'Belum diterima';
+                                        })
+                                        ->color(fn($state) => str_contains($state, 'Belum') ? 'warning' : null),
+
+                                    // ===== MIR =====
+                                    TextEntry::make('tanggal_mir')
+                                        ->label('Tanggal MIR')
+                                        ->state(function (DeliveryOrderReceipt $record) {
+                                            $tgl = optional($record->purchaseOrderTerbits?->materialIssuedRequests)->min('tanggal');
+                                            return $tgl ? Carbon::parse($tgl)->translatedFormat('l, d F Y') : 'Belum dibuat';
+                                        })
+                                        ->color(fn($state) => str_contains($state, 'Belum') ? 'warning' : null),
                                 ]),
                             ]),
 
@@ -591,23 +645,154 @@ class ItemMonitoring extends BaseWidget
                                     TextEntry::make('current_stage')
                                         ->label('Stage Saat Ini')
                                         ->state(function (DeliveryOrderReceipt $record) {
-                                            if (!$record->received_date)
-                                                return 'Menunggu: Terima DO';
-                                            if (!$record->tgl_kirim_qc)
-                                                return 'Menunggu: Kirim QC';
-                                            if (!$record->tgl_kembali_qc)
-                                                return 'Menunggu: Kembali QC';
-                                            if (!$record->tgl_grs && !$record->tgl_rdtv)
-                                                return 'Menunggu: GRS / RDTV';
-                                            return 'Selesai';
+                                            // gunakan tgl_* hanya sebagai indikasi ada dokumen, qty pakai relasi detail
+                                            $hasGRS = (bool) $record->tgl_grs;
+                                            $hasRDTV = (bool) $record->tgl_rdtv;
+
+                                            if ($hasGRS && $hasRDTV) {
+                                                // hitung coverage berbasis qty
+                                                $totalQty = (float) $record->deliveryOrderReceiptDetails->sum('quantity');
+                                                $grsQty = (float) $record->goodsReceiptSlips
+                                                    ->flatMap(fn($g) => $g->goodsReceiptSlipDetails)
+                                                    ->sum('quantity');
+                                                $rdtvQty = (float) $record->returnDeliveryToVendors
+                                                    ->flatMap(fn($r) => $r->returnDeliveryToVendorDetails)
+                                                    ->sum('quantity');
+
+                                                if ($totalQty > 0 && ($grsQty + $rdtvQty) + 1e-6 >= $totalQty) {
+                                                    return 'Sudah Selesai'; // semua item sudah diputuskan (diterima/ditolak)
+                                                }
+
+                                                return 'Parsial (GRS & RDTV)'; // masih ada sisa item yang belum diputuskan
+                                            }
+
+                                            if ($hasRDTV)
+                                                return 'Sudah RDTV';
+                                            if ($hasGRS)
+                                                return 'Sudah GRS';
+
+                                            // Belum selesai: simple stage
+                                            $hasDo = (bool) $record->received_date;
+                                            $has103Kirim = (bool) $record->tgl_kirim_qc;
+                                            $has103Kembali = (bool) $record->tgl_kembali_qc;
+
+                                            if (!$hasDo)
+                                                return 'Menunggu Terima DO';
+                                            if ($has103Kirim && !$has103Kembali)
+                                                return 'Menunggu Hasil QC Kembali';
+                                            if ($hasDo && !$has103Kirim)
+                                                return 'Menunggu Kirim QC';
+
+                                            return 'Menunggu GRS / RDTV';
                                         })
-                                        ->color(
-                                            fn(string $state) =>
-                                            str_starts_with($state, 'Menunggu') ? 'warning' :
-                                            ($state === 'Selesai' ? 'success' : null)
-                                        )
+                                        ->icon(function (string $state) {
+                                            return match (true) {
+                                                $state === 'Sudah Selesai',
+                                                str_starts_with($state, 'Sudah') => 'heroicon-m-check-circle',
+                                                default => 'heroicon-m-clock',
+                                            };
+                                        })
+                                        ->color(function (string $state) {
+                                            return match (true) {
+                                                $state === 'Sudah Selesai',
+                                                str_starts_with($state, 'Sudah') => 'success',
+                                                str_starts_with($state, 'Parsial') => 'warning',
+                                                str_starts_with($state, 'Menunggu') => 'warning',
+                                                default => null,
+                                            };
+                                        })
                                         ->badge(),
 
+                                    Section::make('Proses Lanjutan')
+                                        ->description('Detail durasi proses dokumen lanjutan.')
+                                        ->collapsed() // bisa dibuka kalau perlu
+                                        ->schema([
+                                            Grid::make(3)->schema([
+                                                // Transmittal Gudang Kirim
+                                                TextEntry::make('status_tg_kirim')
+                                                    ->label('Transmittal Gudang Kirim')
+                                                    ->state(function (DeliveryOrderReceipt $record) {
+                                                        $kirims = $record->goodsReceiptSlips
+                                                            ->flatMap(fn($g) => $g->transmittalGudangKirims);
+
+                                                        if ($kirims->isEmpty()) {
+                                                            return 'Belum';
+                                                        }
+
+                                                        $tglMin = $kirims->min('tanggal_kirim');
+                                                        // daftar lokasi unik (kalau lebih dari satu kiriman / lokasi)
+                                                        $lokasiList = $kirims
+                                                            ->map(fn($k) => $k->warehouseLocation?->name)
+                                                            ->filter()
+                                                            ->unique()
+                                                            ->values();
+
+                                                        $tglStr = \Illuminate\Support\Carbon::parse($tglMin)->format('d/m/Y');
+                                                        $lokasiStr = $lokasiList->isNotEmpty() ? ' → ' . $lokasiList->join(', ') : '';
+
+                                                        // opsional: tampilkan jumlah kirim (jika >1)
+                                                        $countStr = $kirims->count() > 1 ? ' (' . $kirims->count() . 'x)' : '';
+
+                                                        return 'Sudah ' . $tglStr . $countStr . $lokasiStr;
+                                                    })
+                                                    ->badge()
+                                                    ->color(fn(string $state) => str_starts_with($state, 'Sudah') ? 'success' : 'warning')
+                                                    ->icon(fn(string $state) => str_starts_with($state, 'Sudah') ? 'heroicon-m-truck' : 'heroicon-m-clock'),
+
+                                                // Transmittal Gudang Terima (tampilkan lokasi yang menerima)
+                                                TextEntry::make('status_tg_terima')
+                                                    ->label('Transmittal Gudang Terima')
+                                                    ->state(function (DeliveryOrderReceipt $record) {
+                                                        $kirims = $record->goodsReceiptSlips
+                                                            ->flatMap(fn($g) => $g->transmittalGudangKirims);
+
+                                                        $terimas = $kirims->flatMap(fn($k) => $k->transmittalGudangTerimas);
+
+                                                        if ($terimas->isEmpty()) {
+                                                            return 'Belum';
+                                                        }
+
+                                                        $tglMin = $terimas->min('tanggal_terima');
+
+                                                        // ambil lokasi dari TGK yang terkait dengan TG Terima
+                                                        $lokasiIds = $terimas
+                                                            ->map(fn($t) => $t->transmittal_gudang_kirim_id)
+                                                            ->unique();
+
+                                                        $lokasiList = $kirims
+                                                            ->whereIn('id', $lokasiIds)
+                                                            ->map(fn($k) => $k->warehouseLocation?->name)
+                                                            ->filter()
+                                                            ->unique()
+                                                            ->values();
+
+                                                        $tglStr = \Illuminate\Support\Carbon::parse($tglMin)->format('d/m/Y');
+                                                        $lokasiStr = $lokasiList->isNotEmpty() ? ' · ' . $lokasiList->join(', ') : '';
+
+                                                        // opsional: tampilkan jumlah terima (jika >1)
+                                                        $countStr = $terimas->count() > 1 ? ' (' . $terimas->count() . 'x)' : '';
+
+                                                        return 'Sudah ' . $tglStr . $countStr . $lokasiStr;
+                                                    })
+                                                    ->badge()
+                                                    ->color(fn(string $state) => str_starts_with($state, 'Sudah') ? 'success' : 'warning')
+                                                    ->icon(fn(string $state) => str_starts_with($state, 'Sudah') ? 'heroicon-m-home-modern' : 'heroicon-m-clock'),
+
+                                                // Material Issued Request (MIR)
+                                                TextEntry::make('status_mir')
+                                                    ->label('Material Issued Request')
+                                                    ->state(function (DeliveryOrderReceipt $record) {
+                                                        // relasi sudah di-load di mountUsing:
+                                                        // 'purchaseOrderTerbits.materialIssuedRequests'
+                                                        $mirs = $record->purchaseOrderTerbits?->materialIssuedRequests ?? collect();
+                                                        $tgl = $mirs->min('tanggal');
+                                                        return $tgl ? 'Sudah ' . \Illuminate\Support\Carbon::parse($tgl)->format('d/m/Y') : 'Belum MIR';
+                                                    })
+                                                    ->badge()
+                                                    ->color(fn(string $state) => str_starts_with($state, 'Sudah') ? 'success' : 'warning')
+                                                    ->icon(fn(string $state) => str_starts_with($state, 'Sudah') ? 'heroicon-m-home-modern' : 'heroicon-m-check-circle'),
+                                            ]),
+                                        ]),
                                 ]),
                             ]),
 

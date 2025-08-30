@@ -219,15 +219,15 @@ class ReceivingStats extends BaseWidget
         $monthShort = $now->translatedFormat('F');     // contoh: "Agustus"
 
         return [
-            Stat::make('DO diterima - hari ini', number_format($doToday))
-                ->description('Bulan ini: ' . number_format($doMtd) . ' Delivery Order')   // ⬅️ was: Bulan berjalan (MTD)
+            Stat::make('Delivery Order diterima - hari ini', number_format($doToday))
+                ->description('Bulan ' . $monthShort . ': ' . number_format($doMtd) . ' Delivery Order')
                 ->descriptionIcon('heroicon-m-calendar-days')
                 ->chart($chartDo)
                 ->color('primary')
                 ->extraAttributes(['title' => 'Bulan ini (month-to-date)']),
 
-            Stat::make('103 selesai — bulan ini: ' . $monthShort, $pct103 . '%') // ⬅️ judul lebih natural
-                ->description($do103DoneMtd . ' dari ' . $doWithKirimMtd . ' Delivery Order (bulan ini)')
+            Stat::make('Persentase Dokumen 103 (QC) bulan ' . $monthShort, $pct103 . '%') // ⬅️ judul lebih natural
+                ->description($do103DoneMtd . ' dari ' . $doWithKirimMtd . ' Delivery Order Sudah QC')
                 ->descriptionIcon('heroicon-m-check-badge')
                 ->chart($chart103Done)
                 ->color($color103Rate)
@@ -239,13 +239,13 @@ class ReceivingStats extends BaseWidget
                 ->chart($chartOut103)
                 ->color($colorOut103),
 
-            Stat::make('Outstanding proses awal', number_format($outProses))
+            Stat::make('Dokumen Outstanding', number_format($outProses))
                 ->description('Belum dibuat 105 (GRS) & 124 (RDTV)')
                 ->descriptionIcon('heroicon-m-clock')
                 ->chart($chartOutProses)
                 ->color($colorOutProses),
 
-            Stat::make('105 (GRS) — bulan ini: ' . $monthShort, number_format($grsMtd))
+            Stat::make('Dokumen 105 (GRS) bulan ' . $monthShort, number_format($grsMtd))
                 ->description('124 (RDTV) - bulan ini: ' . number_format($rdtvMtd))
                 ->descriptionIcon('heroicon-m-arrows-right-left')
                 ->chart($chart105)

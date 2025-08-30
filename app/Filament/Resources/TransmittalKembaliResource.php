@@ -101,15 +101,16 @@ class TransmittalKembaliResource extends Resource
                                             }
                                         })
                                         ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                                            // Jika 14 digit (kemungkinan Code 103), beri pesan dini & jangan lanjut query
+                                            // Jika 14 digit (kemungkinan Code 103), beri pesan dini & JUGA kosongkan input 'code'
                                             if ($state && preg_match('/^\d{14}$/', $state)) {
                                                 Notification::make()
                                                     ->title('Code 103 terdeteksi')
-                                                    ->body('Silakan scan QR Dokumen (bukan Code 103).')
+                                                    ->body('Silakan scan QR Dokumen (Bukan 103)')
                                                     ->danger()
                                                     ->send();
 
-                                                // kosongkan field terkait agar tidak misleading
+                                                // kosongkan input & field terkait agar tidak misleading
+                                                $set('code', '');
                                                 $set('code_103', null);
                                                 $set('total_item', null);
                                                 $set('tanggal_kirim', null);
@@ -123,10 +124,13 @@ class TransmittalKembaliResource extends Resource
 
                                             if (!$transmittal) {
                                                 Notification::make()
-                                                    ->title("QR Code tidak ditemukan.")
+                                                    ->title('QR Code tidak ditemukan.')
+                                                    ->body('QR Code yang anda scan tidak terdaftar. Mohon periksa kembali!')
                                                     ->danger()
                                                     ->send();
 
+                                                // kosongkan input & field terkait
+                                                $set('code', '');
                                                 $set('code_103', null);
                                                 $set('total_item', null);
                                                 $set('tanggal_kirim', null);

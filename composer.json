@@ -12,6 +12,7 @@
         "barryvdh/laravel-dompdf": "^3.1",
         "designthebox/barcode-field": "^0.0.6",
         "diogogpinto/filament-auth-ui-enhancer": "^1.0",
+        "eightcedars/filament-inactivity-guard": "^0.4.0",
         "filament/filament": "^3.2",
         "josespinal/filament-record-navigation": "^2.0",
         "laravel/framework": "^11.35.0",

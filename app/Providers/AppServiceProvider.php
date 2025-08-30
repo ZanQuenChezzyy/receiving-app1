@@ -99,5 +99,7 @@ class AppServiceProvider extends ServiceProvider
                 WarehouseLocation::class,
             ]
         );
+
+        $this->loadViewsFrom(__DIR__ . '/../resources/views', 'barcode-field');
     }
 }

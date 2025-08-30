@@ -234,6 +234,41 @@ class DeliveryOrderReceiptResource extends Resource
                                                         '230' => '230',
                                                         '240' => '240',
                                                         '250' => '250',
+                                                        '260' => '260',
+                                                        '270' => '270',
+                                                        '280' => '280',
+                                                        '290' => '290',
+                                                        '300' => '300',
+                                                        '310' => '310',
+                                                        '320' => '320',
+                                                        '330' => '330',
+                                                        '340' => '340',
+                                                        '350' => '350',
+                                                        '360' => '360',
+                                                        '370' => '370',
+                                                        '380' => '380',
+                                                        '390' => '390',
+                                                        '400' => '400',
+                                                        '410' => '410',
+                                                        '420' => '420',
+                                                        '430' => '430',
+                                                        '440' => '440',
+                                                        '450' => '450',
+                                                        '460' => '460',
+                                                        '470' => '470',
+                                                        '480' => '480',
+                                                        '490' => '490',
+                                                        '500' => '500',
+                                                        '510' => '510',
+                                                        '520' => '520',
+                                                        '530' => '530',
+                                                        '540' => '540',
+                                                        '550' => '550',
+                                                        '560' => '560',
+                                                        '570' => '570',
+                                                        '580' => '580',
+                                                        '590' => '590',
+                                                        '600' => '600',
                                                     ])
                                                     ->native(false)
                                                     ->searchable()
@@ -298,7 +333,7 @@ class DeliveryOrderReceiptResource extends Resource
 
                                                                 $colorDiterima = $qtyReceived == 0 ? '#6b7280' : '#16a34a'; // Tailwind 'text-green-600'
                                                                 $colorSisa = $sisa == 0 ? '#6b7280' : '#dc2626'; // gray-500 jika sisa 0, red-600 jika masih ada sisa
-
+                                                    
                                                                 return new HtmlString("
                                                                     <span style='color: {$colorDiterima}; font-weight: 500;'>Diterima: {$qtyReceived} {$uoi}</span><br>
                                                                     <span style='color: {$colorSisa}; font-weight: 500;'>Sisa: {$sisa} {$uoi}</span>

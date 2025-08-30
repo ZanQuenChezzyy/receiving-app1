@@ -6,7 +6,9 @@ use App\Filament\Pages\Auth\EditProfile;
 use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\Dashboard;
 use Awcodes\LightSwitch\LightSwitchPlugin;
+use Carbon\CarbonInterface;
 use DiogoGPinto\AuthUIEnhancer\AuthUIEnhancerPlugin;
+use EightCedars\FilamentInactivityGuard\FilamentInactivityGuardPlugin;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -34,6 +36,7 @@ class AdminPanelProvider extends PanelProvider
             ->spa()
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->brandLogo(asset('img/logo-pupuk-kaltim.png'))
+            ->plugin(FilamentInactivityGuardPlugin::make())
             ->brandLogoHeight('2rem')
             ->login(Login::class)
             ->profile(EditProfile::class)
@@ -66,6 +69,12 @@ class AdminPanelProvider extends PanelProvider
                     ->emptyPanelBackgroundImageOpacity('60%')
                     ->emptyPanelBackgroundImageUrl(asset('img/auth/background-auth.jpg')),
                 LightSwitchPlugin::make(),
+                FilamentInactivityGuardPlugin::make()
+                    ->inactiveAfter(5 * CarbonInterface::SECONDS_PER_MINUTE)
+                    ->showNoticeFor(1 * CarbonInterface::SECONDS_PER_MINUTE)
+                    // ->showNoticeFor(null)
+                    ->enabled(!app()->isLocal())
+                    ->keepActiveOn(['change', 'select', 'mousemove'], mergeWithDefaults: true),
             ])
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->middleware([

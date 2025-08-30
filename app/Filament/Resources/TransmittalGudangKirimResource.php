@@ -6,7 +6,7 @@ use App\Filament\Clusters\MIR;
 use App\Filament\Resources\TransmittalGudangKirimResource\Pages;
 use App\Filament\Resources\TransmittalGudangKirimResource\RelationManagers;
 use App\Models\TransmittalGudangKirim;
-use DesignTheBox\BarcodeField\Forms\Components\BarcodeInput;
+use App\Forms\Components\BarcodeInput;
 use Filament\Actions\StaticAction;
 use Filament\Forms;
 use Filament\Forms\Components\DatePicker;

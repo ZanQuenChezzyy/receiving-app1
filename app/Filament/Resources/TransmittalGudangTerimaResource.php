@@ -9,7 +9,7 @@ use App\Models\GoodsReceiptSlip;
 use App\Models\TransmittalGudangKirim;
 use App\Models\TransmittalGudangKirimDetail;
 use App\Models\TransmittalGudangTerima;
-use DesignTheBox\BarcodeField\Forms\Components\BarcodeInput;
+use App\Forms\Components\BarcodeInput;
 use Filament\Actions\StaticAction;
 use Filament\Forms;
 use Filament\Forms\Components\Grid;
